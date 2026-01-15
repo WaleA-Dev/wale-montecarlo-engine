@@ -387,7 +387,7 @@ With all perturbations active, the space of possible outcomes is enormous:
 - Each trade: skip/execute × delay_bars × slippage_amount
 - Plus global: shuffle × bootstrap
 
-This is why we need 200,000 permutations — to adequately sample this space.
+IMO, this is why we need 200,000 permutations — to adequately sample this space.
 
 ---
 
