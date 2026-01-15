@@ -35,9 +35,9 @@ quantiles = np.nanpercentile(values, [5, 50, 95])
 
 | Quantile | Symbol | Interpretation |
 |----------|--------|----------------|
-| P05 | 5th percentile | "Bad case" — only 5% of outcomes are worse |
-| P50 | Median | "Typical case" — half above, half below |
-| P95 | 95th percentile | "Good case" — only 5% of outcomes are better |
+| P05 | 5th percentile | "Bad case"  -  only 5% of outcomes are worse |
+| P50 | Median | "Typical case"  -  half above, half below |
+| P95 | 95th percentile | "Good case"  -  only 5% of outcomes are better |
 
 **Why P05/P95 instead of min/max?**
 
@@ -54,7 +54,7 @@ stats = {
 
 Useful for:
 - **Mean**: Central tendency (but can be skewed by outliers)
-- **Std**: Dispersion — high std means high uncertainty
+- **Std**: Dispersion  -  high std means high uncertainty
 
 ---
 
@@ -95,7 +95,7 @@ Multiplication ensures **both** factors need to be good.
 
 ### What We're Testing
 
-**Null hypothesis**: The perturbation parameters don't matter — results are as good as baseline.
+**Null hypothesis**: The perturbation parameters don't matter  -  results are as good as baseline.
 
 **Alternative**: Perturbation degrades performance below baseline.
 
@@ -130,7 +130,7 @@ If testing 1,500 cells:
 - p_raw = 0.023
 - p_corrected = min(1.0, 0.023 × 1500) = 1.0
 
-This is very conservative — it's saying "with 1,500 tests, a raw p of 0.023 could easily be chance."
+This is very conservative  -  it's saying "with 1,500 tests, a raw p of 0.023 could easily be chance."
 
 ### Interpretation Guidelines
 
@@ -198,7 +198,7 @@ A point is Pareto-optimal if no other point dominates it.
 
 ### Interpretation
 
-The Pareto front shows you the **efficient frontier** — the best possible tradeoffs. Cells *not* on the front are strictly dominated.
+The Pareto front shows you the **efficient frontier**  -  the best possible tradeoffs. Cells *not* on the front are strictly dominated.
 
 ---
 
@@ -319,7 +319,7 @@ Look for:
 1. **Start with Pareto front**: These are provably efficient
 2. **Check robust score ranking**: Confirms statistical significance
 3. **Find the plateau**: Pick from the middle of a stable region
-4. **Verify parameters make sense**: Don't pick p_skip=0.00 — that's unrealistic
+4. **Verify parameters make sense**: Don't pick p_skip=0.00  -  that's unrealistic
 
 ### What Parameters to Use Live
 

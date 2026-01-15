@@ -31,7 +31,7 @@ These assumptions are always wrong in live trading. Perturbation stress-tests yo
 
 ### Conservative Bias
 
-Our perturbations are **conservative** — they can only hurt your results, never help them.
+Our perturbations are **conservative**  -  they can only hurt your results, never help them.
 
 Example: In the delay model, if delaying your entry would have given you a *better* fill price, we ignore the delay and keep the original (worse) price. This is intentional. In live trading, you might occasionally get lucky with delays, but you shouldn't rely on it.
 
@@ -255,7 +255,7 @@ If your strategy's metrics are:
 - **Stable under permute**: Not dependent on lucky ordering
 - **Unstable under permute**: May be benefiting from specific trade sequences
 
-Block permutation is more realistic — real trading strategies often have clustered behavior.
+Block permutation is more realistic  -  real trading strategies often have clustered behavior.
 
 ---
 
@@ -310,7 +310,7 @@ Sample blocks with replacement:
 
 ### Motivation
 
-Real slippage and delays aren't uniform — they're worse during volatile periods and drawdowns.
+Real slippage and delays aren't uniform  -  they're worse during volatile periods and drawdowns.
 
 ### State Variables
 
@@ -387,7 +387,7 @@ With all perturbations active, the space of possible outcomes is enormous:
 - Each trade: skip/execute × delay_bars × slippage_amount
 - Plus global: shuffle × bootstrap
 
-IMO, this is why we need 200,000 permutations — to adequately sample this space.
+IMO, this is why we need 200,000 permutations - to adequately sample this space.
 
 ---
 

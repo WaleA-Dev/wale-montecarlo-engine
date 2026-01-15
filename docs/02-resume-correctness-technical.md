@@ -1,6 +1,6 @@
 # Resume Correctness: Technical Deep Dive
 
-This document explains the resume correctness system in detail — why it exists, how it works, and what guarantees it provides.
+This document explains the resume correctness system in detail  -  why it exists, how it works, and what guarantees it provides.
 
 ---
 
@@ -34,7 +34,7 @@ The original Monte Carlo runner had a critical bug that manifested during resume
 
 **The `metrics_compact.csv` file is the ONLY source of truth.**
 
-`progress.json` is advisory only — it's useful for quick status checks but never trusted for resume decisions.
+`progress.json` is advisory only  -  it's useful for quick status checks but never trusted for resume decisions.
 
 ### Resume Algorithm
 

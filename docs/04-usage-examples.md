@@ -411,4 +411,4 @@ If `timestamp` hasn't updated in >60 seconds, something is wrong. Check:
 
 6. **Save your command** so you can resume with exact same parameters
 
-7. **Use SSD** if possible — lots of small file I/O
+7. **Use SSD** if possible  -  lots of small file I/O
