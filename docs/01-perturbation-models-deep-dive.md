@@ -19,7 +19,7 @@ This document explains the mathematical and practical details of each perturbati
 
 ## Philosophy of Perturbation
 
-### Why Perturb at All?
+### Why 'Perturb' at All?
 
 Every backtest makes implicit assumptions:
 - "I will execute every signal"
