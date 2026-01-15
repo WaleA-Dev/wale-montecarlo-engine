@@ -3,7 +3,7 @@
 > A battle-tested, production-grade Monte Carlo simulation framework for stress-testing trading strategies under realistic market conditions.
 
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![License: CC BY-NC-SA 4.0](https://img.shields.io/badge/License-CC%20BY--NC--SA%204.0-lightgrey.svg)](https://creativecommons.org/licenses/by-nc-sa/4.0/)
 
 ---
 
@@ -21,7 +21,7 @@ We do this by running hundreds of thousands of Monte Carlo simulations that syst
 - What if execution is delayed by a few bars?
 - What if the sequence of trades was just lucky?
 
-The result isn't a single equity curve—it's a *distribution* of outcomes. And from that distribution, you can make actual decisions about position sizing, risk limits, and whether this strategy is worth trading at all.
+The result isn't a single equity curve - it's a *distribution* of outcomes. And from that distribution, you can make actual decisions about position sizing, risk limits, and whether this strategy is worth trading at all.
 
 ---
 
@@ -95,21 +95,21 @@ Monte Carlo simulation lets us explore the space of "what could have happened" b
 
 I built this engine after getting burned by strategies that looked great in backtests but fell apart in live trading. The problems were always the same:
 
-1. **Slippage was underestimated** — Real fills are worse than historical prices
-2. **Execution delays killed edge** — Even 1-bar delays can destroy mean-reversion strategies
-3. **Lucky trade sequences** — The exact ordering of wins/losses mattered more than I thought
-4. **Missing trades** — Technical issues, connection drops, risk limits — trades get skipped
+1. **Slippage was underestimated**  -  Real fills are worse than historical prices
+2. **Execution delays killed edge**  -  Even 1-bar delays can destroy mean-reversion strategies
+3. **Lucky trade sequences**  -  The exact ordering of wins/losses mattered more than I thought
+4. **Missing trades**  -  Technical issues, connection drops, risk limits  -  trades get skipped
 
 This engine forces you to confront all of these before you risk real capital.
 
 ### The Core Insight
 
-A strategy is robust if it works across a *range* of adverse conditions, not just the idealized backtest. We don't care about the mean outcome—we care about the **tail risk**.
+A strategy is robust if it works across a *range* of adverse conditions, not just the idealized backtest. We don't care about the mean outcome - we care about the **tail risk**.
 
 That's why we focus on metrics like:
-- **P95 Max Drawdown** — What's the worst drawdown in 95% of scenarios?
-- **P05 Total Return** — What's the floor on returns?
-- **P(MaxDD > 40%)** — How likely is a catastrophic drawdown?
+- **P95 Max Drawdown**  -  What's the worst drawdown in 95% of scenarios?
+- **P05 Total Return**  -  What's the floor on returns?
+- **P(MaxDD > 40%)**  -  How likely is a catastrophic drawdown?
 
 ---
 
@@ -194,10 +194,10 @@ That's why we focus on metrics like:
 | p_skip | Interpretation |
 |--------|----------------|
 | 0.00   | Perfect execution (baseline) |
-| 0.01   | 1% of trades missed — minor issues |
-| 0.02   | 2% missed — occasional problems |
-| 0.05   | 5% missed — significant reliability issues |
-| 0.10   | 10% missed — severe infrastructure problems |
+| 0.01   | 1% of trades missed  -  minor issues |
+| 0.02   | 2% missed  -  occasional problems |
+| 0.05   | 5% missed  -  significant reliability issues |
+| 0.10   | 10% missed  -  severe infrastructure problems |
 
 **What to look for:** If your strategy collapses at p_skip=0.02, it's probably over-optimized to a specific sequence of trades.
 
@@ -213,10 +213,10 @@ That's why we focus on metrics like:
 | Slip ($) | Interpretation |
 |----------|----------------|
 | 0        | Zero slippage (unrealistic) |
-| 25       | Minimal slippage — very liquid markets |
+| 25       | Minimal slippage  -  very liquid markets |
 | 50       | Typical for liquid index futures |
-| 100      | Moderate slippage — less liquid conditions |
-| 200-300  | High slippage — volatile/illiquid conditions |
+| 100      | Moderate slippage  -  less liquid conditions |
+| 200-300  | High slippage  -  volatile/illiquid conditions |
 
 **What to look for:** Many strategies that look great at slip=$0 become unprofitable at slip=$100. If your edge disappears with realistic slippage, it wasn't a real edge.
 
@@ -228,7 +228,7 @@ That's why we focus on metrics like:
 
 **How it works:** Entry and exit prices are shifted by 0 to `delay_bars_max` bars. The engine uses actual OHLC data to find the realistic fill price at the delayed timestamp.
 
-**Key constraint:** Delay can only *hurt* — if the delayed fill would be better, we keep the original price. This is conservative and realistic (you rarely get *better* fills due to delays).
+**Key constraint:** Delay can only *hurt*  -  if the delayed fill would be better, we keep the original price. This is conservative and realistic (you rarely get *better* fills due to delays).
 
 **OHLC Model:** When OHLC data is available, we use the actual open prices at the delayed bar. This is more realistic than statistical approximations.
 
@@ -236,9 +236,9 @@ That's why we focus on metrics like:
 | Delay | Interpretation |
 |-------|----------------|
 | 0     | Instant execution (unrealistic for retail) |
-| 1     | 1-bar delay — typical for manual/slow execution |
-| 2     | 2-bar delay — poor infrastructure |
-| 3     | 3-bar delay — severe issues |
+| 1     | 1-bar delay  -  typical for manual/slow execution |
+| 2     | 2-bar delay  -  poor infrastructure |
+| 3     | 3-bar delay  -  severe issues |
 
 **What to look for:** Mean-reversion strategies are especially sensitive to delay. A strategy that works at delay=0 but fails at delay=1 is probably capturing spurious patterns.
 
@@ -259,7 +259,7 @@ That's why we focus on metrics like:
 
 ### 5. Bootstrap Resampling (`bootstrap_mode`)
 
-**What it simulates:** Drawing from the same underlying distribution with replacement — "what if we had different trades from the same strategy?"
+**What it simulates:** Drawing from the same underlying distribution with replacement  -  "what if we had different trades from the same strategy?"
 
 **How it works:**
 - **`none`**: Use original trades
@@ -274,7 +274,7 @@ That's why we focus on metrics like:
 
 ### Why Grid Search?
 
-We don't just run one set of perturbation parameters — we run *all* combinations. This creates a **surface** that shows how strategy performance degrades across the parameter space.
+We don't just run one set of perturbation parameters  -  we run *all* combinations. This creates a **surface** that shows how strategy performance degrades across the parameter space.
 
 ### Default Grid (Full Surface)
 
@@ -390,7 +390,7 @@ We compute Pareto-optimal cells along multiple dimensions:
 
 ### Plateau Clustering
 
-Clusters cells with similar robust scores to identify **stable parameter regions**. If a cluster contains cells with p_skip ranging from 0.02-0.05 and all have similar scores, that's a robust region — your results aren't sensitive to exact parameter choice.
+Clusters cells with similar robust scores to identify **stable parameter regions**. If a cluster contains cells with p_skip ranging from 0.02-0.05 and all have similar scores, that's a robust region  -  your results aren't sensitive to exact parameter choice.
 
 ---
 
@@ -556,6 +556,6 @@ This is a personal research tool, but if you find bugs or have improvements, fee
 
 ## License
 
-MIT License. Use at your own risk. No warranty. Past performance doesn't predict future results. You know the drill.
+CC BY-NC-SA 4.0. You can use, modify, and share this code, but NOT for commercial purposes or sale. If you build on it, share your improvements under the same license. No warranty. Use at your own risk.
 
 ---
