@@ -9,7 +9,7 @@
 
 ## What This Is (And Why It Matters)
 
-If you're running a systematic trading strategy, you've probably asked yourself: *"Is my backtest too good to be true?"*
+If you're running a systematic trading strategy, you've probably asked yourself: *"Is my backtest too good to be true?"* *"Is my strategy overfit?"*
 
 The honest answer is usually: *yes, probably.*
 
@@ -266,7 +266,7 @@ That's why we focus on metrics like:
 - **`trade_bootstrap`**: Sample trades with replacement (some trades appear multiple times, some never)
 - **`block_bootstrap`**: Sample blocks of N trades with replacement (preserves autocorrelation)
 
-**Why it matters:** Bootstrap lets us estimate confidence intervals around our metrics. If the P50 profit factor varies wildly under bootstrap, we don't have enough trades to draw reliable conclusions.
+**Why I think it matters:** Bootstrap lets us estimate confidence intervals around metrics. If the P50 profit factor varies wildly under bootstrap, we don't have enough trades to draw reliable conclusions.
 
 ---
 
@@ -321,7 +321,7 @@ This takes ~24-48 hours on a Ryzen 7700X with 8 parallel workers.
 
 ## Resume & Correctness Guarantees
 
-### The Problem We Solved
+### The Problem Solved
 
 The original runner had a critical bug: on resume after a crash, it would restart from the wrong position and produce **duplicate permutations**. This inflated `n_perms_done` beyond the target and corrupted the statistics.
 
@@ -506,7 +506,7 @@ Optional:
 
 ---
 
-## FAQ
+## **FAQ**
 
 ### Q: How long does a full run take?
 
@@ -546,7 +546,7 @@ Recommended:
 
 ### Q: Why 200,000 permutations?
 
-**A:** Statistical convergence. Key percentiles (P05, P50, P95) stabilize around 100K. We use 200K for extra precision on tail estimates and reliable p-values.
+**A:** Statistical convergence. Key percentiles (P05, P50, P95) stabilize around 100K. We use 200K for extra precision on tail estimates and reliable p-values... and just for fun :)
 
 ---
 
@@ -559,5 +559,3 @@ This is a personal research tool, but if you find bugs or have improvements, fee
 MIT License. Use at your own risk. No warranty. Past performance doesn't predict future results. You know the drill.
 
 ---
-
-*Built with frustration, caffeine, and a deep distrust of backtests that look too good.*
