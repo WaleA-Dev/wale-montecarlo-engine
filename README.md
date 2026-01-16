@@ -38,6 +38,12 @@ The result isn't a single equity curve - it's a *distribution* of outcomes. And 
 9. [Command Reference](#command-reference)
 10. [FAQ](#faq)
 
+### Additional Documentation
+
+- [PineScript to Python Engine](docs/05-pinescript-to-python-engine.md) - Converting TradingView strategies
+- [Accuracy Testing Guide](docs/06-accuracy-testing-guide.md) - Validating your implementation
+- [CLI Reference](docs/07-cli-reference.md) - Full command-line documentation
+
 ---
 
 ## Quick Start
@@ -503,6 +509,40 @@ Required:
 Optional:
   --top_n INT           Number of top cells to include in report (default: 50)
 ```
+
+---
+
+## PineScript to Python Engine
+
+This project includes a complete PineScript to Python conversion engine that enables local backtesting with TradingView-equivalent accuracy.
+
+### What It Does
+
+1. **Parses PineScript files** - Extracts strategy parameters, presets, and input values
+2. **Implements indicators in Python** - EMA, RMA, ATR, ADX with exact PineScript math
+3. **Runs backtests locally** - Full position management with proper fill timing
+4. **Validates against TradingView** - Trade-by-trade comparison with Excel exports
+
+### Why This Matters
+
+Without accurate conversion, Monte Carlo results are meaningless. If your Python engine does not match TradingView exactly, you are stress-testing the wrong strategy.
+
+The engine has been validated to match TradingView trade-by-trade on:
+- Entry/exit times (exact bar match)
+- Entry/exit prices (within 0.01 tolerance)
+- PnL per trade (within 2% tolerance)
+- Total equity (within 1% tolerance)
+
+### Key Implementation Details
+
+| Indicator | Critical Detail |
+|-----------|-----------------|
+| EMA | Must initialize with SMA seed, not from bar 0 |
+| RMA | Uses alpha = 1/length, different from EMA |
+| ATR | Uses RMA smoothing, not EMA |
+| Fill Timing | Signal on close, execute on next bar open |
+
+For complete documentation, see [PineScript to Python Engine](docs/05-pinescript-to-python-engine.md).
 
 ---
 
