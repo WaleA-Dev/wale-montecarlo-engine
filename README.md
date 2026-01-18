@@ -9,7 +9,7 @@
 
 ## What This Is (And Why It Matters)
 
-If you're running a systematic trading strategy, you've probably asked yourself: *"Is my backtest too good to be true?"* *"Is my strategy overfit?"*
+If you're running a systematic trading strategy, you've probably asked yourself: *"Is my backtest too good to be true?"* or *"Is my strategy overfit?"*
 
 The honest answer is usually: *yes, probably.*
 
