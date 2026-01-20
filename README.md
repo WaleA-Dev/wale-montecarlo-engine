@@ -1,6 +1,6 @@
 # Wale Monte Carlo Backtesting Engine
 
-> A battle-tested, production-grade Monte Carlo simulation framework for stress-testing trading strategies under realistic market conditions.
+> A Monte Carlo simulation framework for stress-testing trading strategies under realistic market conditions.
 
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
 [![License: CC BY-NC-SA 4.0](https://img.shields.io/badge/License-CC%20BY--NC--SA%204.0-lightgrey.svg)](https://creativecommons.org/licenses/by-nc-sa/4.0/)
