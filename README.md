@@ -117,66 +117,66 @@ That's why we focus on metrics like:
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│                        INPUT DATA                                │
+│                        INPUT DATA                               │
 ├─────────────────────────────────────────────────────────────────┤
 │  trade_list.csv      │  equity_curve.csv   │  OHLC data (opt)   │
 │  - entry/exit times  │  - bar-by-bar equity│  - for delay model │
-│  - prices, PnL       │  - timestamps       │                    │
+│  - prices, PnL       │  - timestamps       │  - databento, etc  │
 └─────────────────────────────────────────────────────────────────┘
                               │
                               ▼
 ┌─────────────────────────────────────────────────────────────────┐
-│                    PERTURBATION ENGINE                           │
+│                    PERTURBATION ENGINE                          │
 ├─────────────────────────────────────────────────────────────────┤
-│                                                                  │
-│   ┌──────────┐  ┌──────────┐  ┌──────────┐  ┌──────────────┐   │
-│   │ p_skip   │  │ slippage │  │  delay   │  │   shuffle    │   │
-│   │ 0-10%    │  │ $0-$300  │  │ 0-3 bars │  │ permute/block│   │
-│   └──────────┘  └──────────┘  └──────────┘  └──────────────┘   │
-│                                                                  │
+│                                                                 │
+│   ┌──────────┐  ┌──────────┐  ┌──────────┐  ┌──────────────┐    │
+│   │ p_skip   │  │ slippage │  │  delay   │  │   shuffle    │    │
+│   │ 0-10%    │  │ $0-$300  │  │ 0-3 bars │  │ permute/block│    │
+│   └──────────┘  └──────────┘  └──────────┘  └──────────────┘    │
+│                                                                 │
 │   ┌──────────────┐                                              │
 │   │  bootstrap   │  ← Resampling with replacement               │
 │   │ trade/block  │                                              │
 │   └──────────────┘                                              │
-│                                                                  │
+│                                                                 │
 └─────────────────────────────────────────────────────────────────┘
                               │
                               ▼
 ┌─────────────────────────────────────────────────────────────────┐
-│                    GRID SEARCH ENGINE                            │
+│                    GRID SEARCH ENGINE                           │
 ├─────────────────────────────────────────────────────────────────┤
-│                                                                  │
+│                                                                 │
 │  For each parameter combination (cell):                         │
 │    → Run N permutations (e.g., 200,000)                         │
 │    → Compute distribution of outcomes                           │
 │    → Save metrics_compact.csv                                   │
-│                                                                  │
-│  Grid dimensions:                                                │
+│                                                                 │
+│  Grid dimensions:                                               │
 │    p_skip:     [0.00, 0.01, 0.02, 0.03, 0.05, 0.08, 0.10]       │
 │    slip:       [0, 25, 50, 75, 100, 150, 200, 300]              │
 │    delay:      [0, 1, 2, 3]                                     │
 │    shuffle:    [none, permute, block_permute]                   │
 │    bootstrap:  [none, trade_bootstrap, block_bootstrap]         │
 │    block_len:  [5, 10, 20]                                      │
-│                                                                  │
-│  Total cells: 7 × 8 × 4 × 3 × 3 × 3 = 6,048 (unfiltered)       │
+│                                                                 │
+│  Total cells: 7 × 8 × 4 × 3 × 3 × 3 = 6,048 (unfiltered)        │
 │  With delay=1: ~1,500 cells                                     │
-│                                                                  │
+│                                                                 │
 └─────────────────────────────────────────────────────────────────┘
                               │
                               ▼
 ┌─────────────────────────────────────────────────────────────────┐
-│                    ANALYSIS ENGINE                               │
+│                    ANALYSIS ENGINE                              │
 ├─────────────────────────────────────────────────────────────────┤
-│                                                                  │
+│                                                                 │
 │  Robust Score = PF_P50 × (1 - P_value_corrected)                │
-│                                                                  │
-│  Outputs:                                                        │
+│                                                                 │
+│  Outputs:                                                       │
 │    - Ranking by robust score                                    │
 │    - Pareto fronts (PF vs MaxDD, multi-dimensional)             │
 │    - Plateau clusters (stable parameter regions)                │
 │    - Decision-grade markdown report                             │
-│                                                                  │
+│                                                                 │
 └─────────────────────────────────────────────────────────────────┘
 ```
 
