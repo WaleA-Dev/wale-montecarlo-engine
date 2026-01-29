@@ -192,6 +192,55 @@ That's why we focus on metrics like:
 
 ---
 
+## Databento Integration (OHLC Data)
+
+The engine uses OHLC (Open-High-Low-Close) data to model realistic execution delays. When you delay a trade entry by N bars, the engine looks up the actual price at that future bar instead of guessing.
+
+### Why You Need OHLC Data
+
+Without OHLC data, the engine estimates delay impact using a statistical model. With OHLC data, it uses real historical prices, which is more accurate for stress testing.
+
+### Setting Up Databento
+
+1. **Get an API key** from [databento.com](https://databento.com)
+
+2. **Set your API key** (pick one method):
+
+   **Option A: Environment variable (recommended)**
+   ```powershell
+   # PowerShell
+   $env:DATABENTO_API_KEY = "db-your-key-here"
+   ```
+   
+   **Option B: Command line argument**
+   ```powershell
+   python scripts/fetch_ohlc.py --key db-your-key-here
+   ```
+
+3. **Fetch OHLC data:**
+   ```powershell
+   cd C:\Users\wale\wale-montecarlo-engine
+   python scripts/fetch_ohlc.py --symbol NQ --start 2023-01-01 --end 2026-01-29
+   ```
+
+4. **Run your simulation** (it will automatically use ohlc.csv if present):
+   ```powershell
+   python scripts/run_simulation.py --trades trade_list.csv --n_per_cell 1000
+   ```
+
+### fetch_ohlc.py Options
+
+| Option | Description |
+|--------|-------------|
+| `--key` | Databento API key (or use DATABENTO_API_KEY env var) |
+| `--symbol` | Futures symbol (default: NQ) |
+| `--start` | Start date YYYY-MM-DD |
+| `--end` | End date YYYY-MM-DD |
+| `--output` | Output file (default: ohlc.csv) |
+| `--schema` | Bar size: ohlcv-1m, ohlcv-1h, ohlcv-1d (default: ohlcv-1h) |
+
+---
+
 ## Perturbation Models
 
 ### 1. Trade Skipping (`p_skip`)
