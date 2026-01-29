@@ -45,15 +45,14 @@ Each perturbation is applied independently to each trade. This might seem harsh 
 
 ### Mathematical Formulation
 
-For each trade $i$ in the trade list:
-$$
-\text{executed}_i = \begin{cases}
-1 & \text{if } U_i > p_{\text{skip}} \\
-0 & \text{if } U_i \leq p_{\text{skip}}
-\end{cases}
-$$
+For each trade *i* in the trade list:
 
-Where $U_i \sim \text{Uniform}(0, 1)$ is an independent random draw.
+```
+executed_i = 1  if U_i > p_skip
+executed_i = 0  if U_i <= p_skip
+```
+
+Where `U_i ~ Uniform(0, 1)` is an independent random draw.
 
 ### Implementation Details
 
@@ -100,35 +99,39 @@ If after 50 attempts we can't get enough trades, the simulation proceeds anyway 
 We support three slippage modes:
 
 #### Dollar Slippage (Recommended)
-$$
-\text{slip}_i = U_i \cdot \text{slip\_max} \cdot m_i
-$$
+
+```
+slip_i = U_i * slip_max * m_i
+```
 
 Where:
-- $U_i \sim \text{Uniform}(0, 1)$
-- $\text{slip\_max}$ is the maximum slippage in dollars
-- $m_i$ is a state-dependent multiplier (see State-Dependent Models)
+- `U_i ~ Uniform(0, 1)`
+- `slip_max` is the maximum slippage in dollars
+- `m_i` is a state-dependent multiplier (see State-Dependent Models)
 
 #### R-Based Slippage
-$$
-\text{slip}_i = U_i \cdot r_{\text{max}} \cdot R_i \cdot m_i
-$$
 
-Where $R_i$ is the risk (R-value) for trade $i$ in dollars.
+```
+slip_i = U_i * r_max * R_i * m_i
+```
+
+Where `R_i` is the risk (R-value) for trade *i* in dollars.
 
 #### Percentage Slippage
-$$
-\text{slip}_i = U_i \cdot \text{pct\_max} \cdot V_i \cdot m_i
-$$
 
-Where $V_i$ is the entry value (notional) for trade $i$.
+```
+slip_i = U_i * pct_max * V_i * m_i
+```
+
+Where `V_i` is the entry value (notional) for trade *i*.
 
 ### Application
 
 Slippage is subtracted from PnL:
-$$
-\text{PnL}_{\text{after}} = \text{PnL}_{\text{before}} - \text{slip}_i
-$$
+
+```
+pnl_after = pnl_before - slip_i
+```
 
 ### Why Uniform Distribution?
 

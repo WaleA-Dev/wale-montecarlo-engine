@@ -89,6 +89,52 @@ python -m pytest tests/ -v
 
 ---
 
+## Trade List Format
+
+Your trade list CSV must have these columns:
+
+| Column | Type | Description |
+|--------|------|-------------|
+| `entry_time` | datetime | When you entered the trade |
+| `exit_time` | datetime | When you exited the trade |
+| `entry_price` | float | Entry price |
+| `exit_price` | float | Exit price |
+| `pnl` | float | Profit/loss in dollars |
+| `side` | string | `long` or `short` |
+| `quantity` | int | Number of contracts/shares |
+| `symbol` | string | Ticker symbol (optional) |
+
+### Example trade_list.csv
+
+```csv
+entry_time,exit_time,entry_price,exit_price,pnl,side,quantity,symbol
+2023-01-19 12:30:00,2023-01-23 15:30:00,11284.33,11841.49,4272.27,long,8,NQ
+2023-02-10 12:30:00,2023-03-23 09:30:00,12223.63,12735.60,3896.08,long,8,NQ
+2023-04-05 13:30:00,2023-05-19 14:30:00,12926.38,13775.96,6583.02,long,8,NQ
+```
+
+### Converting from Other Formats
+
+If your broker exports trades differently, you may need to rename columns:
+
+```python
+import pandas as pd
+
+df = pd.read_csv('broker_export.csv')
+df = df.rename(columns={
+    'Entry Date': 'entry_time',
+    'Exit Date': 'exit_time',
+    'Entry Price': 'entry_price',
+    'Exit Price': 'exit_price',
+    'Profit/Loss': 'pnl',
+    'Type': 'side',
+    'Qty': 'quantity'
+})
+df.to_csv('trade_list.csv', index=False)
+```
+
+---
+
 ## The Philosophy
 
 ### Why Monte Carlo?
