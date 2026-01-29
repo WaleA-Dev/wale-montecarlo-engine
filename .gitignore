@@ -43,5 +43,16 @@ desktop.ini
 
 # Project specific
 backtest/out/
+montecarlo_output/
 *.npy
 *.pkl
+
+# Data files (user specific)
+ohlc.csv
+trade_list.csv
+*.parquet
+
+# Secrets - NEVER commit
+**/secrets/
+*.key
+.databento*
