@@ -42,39 +42,49 @@ The result isn't a single equity curve - it's a *distribution* of outcomes. And 
 
 ## Quick Start
 
-### Prerequisites
+### Install Dependencies
 
 ```bash
-pip install numpy pandas matplotlib
+cd wale-montecarlo-engine
+pip install -r requirements.txt
 ```
 
-### Run Your First Simulation
+### Run a Simulation
 
 ```powershell
-# Set deterministic seed for reproducibility
-$env:PYTHONHASHSEED = "0"
+# Navigate to the engine directory first
+cd C:\Users\wale\wale-montecarlo-engine
 
-# Run the full 200K permutation grid
-python CURSOR_run_surface_full_200k.py `
-    --repo "C:\path\to\your\strategy" `
-    --n_per_cell 200000 `
-    --jobs 8
+# Run with your trade list (adjust --n_per_cell as needed)
+python scripts/run_simulation.py --trades your_trades.csv --n_per_cell 1000 --jobs 8
+
+# Or run with the sample data
+python scripts/run_simulation.py --trades examples/sample_trade_list.csv --n_per_cell 1000 --jobs 8
 ```
 
 ### Check Progress While Running
 
 ```powershell
-# Quick status
-python CURSOR_run_surface_full_200k.py --repo "." --run_name <your_run> --status_only
+# Make sure you run this from the engine directory
+cd C:\Users\wale\wale-montecarlo-engine
 
-# Watch heartbeat
-Get-Content "backtest\out\montecarlo\<run>\aggregated\heartbeat.json"
+# Check the heartbeat file (replace run name with yours)
+type montecarlo_output\mc_run_YYYYMMDD_HHMMSS\aggregated\heartbeat.json
+
+# Or use the status flag
+python scripts/run_simulation.py --trades your_trades.csv --status mc_run_YYYYMMDD_HHMMSS
 ```
 
-### Analyze Results
+### Dry Run (Preview Config)
 
 ```powershell
-python CURSOR_surface_full_200k_analysis.py --run_dir "backtest\out\montecarlo\<run>"
+python scripts/run_simulation.py --trades your_trades.csv --dry_run
+```
+
+### Run Tests
+
+```powershell
+python -m pytest tests/ -v
 ```
 
 ---
@@ -466,43 +476,49 @@ backtest/out/montecarlo/mc_surface_full_200k_<timestamp>/
 
 ## Command Reference
 
-### Main Runner
+### Simulation Runner
 
 ```powershell
-python CURSOR_run_surface_full_200k.py [OPTIONS]
+python scripts/run_simulation.py [OPTIONS]
 
 Required:
-  --repo PATH           Repository root containing backtest data
+  --trades PATH         Path to trade list CSV (must have entry_time, exit_time, pnl columns)
 
 Optional:
-  --run_name NAME       Resume existing run (auto-generated if omitted)
-  --n_per_cell INT      Permutations per cell (default: 200000)
-  --jobs INT            Parallel processes (default: min(8, CPU cores))
-  --checkpoint_every INT  Checkpoint interval (default: 2000)
-  --base_seed INT       Global seed (default: 1337)
+  --n_per_cell INT      Permutations per cell (default: 1000)
+  --jobs INT            Parallel workers (default: 8)
+  --output_dir PATH     Custom output directory
   
-Grid Filters:
-  --fixed_delay INT     Fix delay to single value (default: 1)
-  --slip_min FLOAT      Minimum slip dollars (default: 0)
-  --slip_max FLOAT      Maximum slip dollars (default: 300)
-  --include_zero_slip   Include slip=0 in grid (default: True)
+Resume/Status:
+  --resume RUN_NAME     Resume an interrupted run
+  --status RUN_NAME     Check progress of existing run
   
-Modes:
-  --status_only         Print status and exit
-  --skip_extension      Skip top-k extension phase (default: True)
+Preview:
+  --dry_run             Show config and grid size without running
+```
+
+### Example Commands
+
+```powershell
+# Start a new run with 100k permutations per cell
+python scripts/run_simulation.py --trades trade_list.csv --n_per_cell 100000 --jobs 8
+
+# Check status
+python scripts/run_simulation.py --trades trade_list.csv --status mc_run_20260129_012613
+
+# Resume interrupted run
+python scripts/run_simulation.py --trades trade_list.csv --resume mc_run_20260129_012613
+
+# Dry run to see grid dimensions
+python scripts/run_simulation.py --trades trade_list.csv --dry_run
 ```
 
 ### Analysis Script
 
 ```powershell
-python CURSOR_surface_full_200k_analysis.py [OPTIONS]
-
-Required:
-  --run_dir PATH        Path to completed run directory
-
-Optional:
-  --top_n INT           Number of top cells to include in report (default: 50)
+python scripts/CURSOR_surface_full_200k_analysis.py --run_dir montecarlo_output/<run_name>
 ```
+
 
 ---
 
