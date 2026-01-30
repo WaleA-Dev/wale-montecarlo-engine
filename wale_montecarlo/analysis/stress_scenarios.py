@@ -207,3 +207,123 @@ def format_scenario_comparison(results: Dict[str, ScenarioResult]) -> str:
             )
     
     return "\n".join(lines)
+
+
+@dataclass
+class OverfitScore:
+    """Overfit detection result."""
+    baseline_pf: float
+    stressed_pf: float
+    degradation_pct: float
+    classification: str  # Robust, Moderate, Fragile, Overfit
+    emoji: str
+    interpretation: str
+
+
+def compute_overfit_score(
+    scenario_results: Dict[str, ScenarioResult],
+    baseline_key: str = 'optimistic',
+    stress_key: str = 'realistic'
+) -> OverfitScore:
+    """
+    Compute overfit score by comparing baseline vs stressed performance.
+    
+    Args:
+        scenario_results: Dict from run_all_scenarios()
+        baseline_key: Which scenario to use as baseline (default: optimistic)
+        stress_key: Which scenario to compare against (default: realistic)
+    
+    Returns:
+        OverfitScore with degradation % and classification
+    """
+    baseline = scenario_results.get(baseline_key)
+    stressed = scenario_results.get(stress_key)
+    
+    if not baseline or not stressed:
+        return OverfitScore(
+            baseline_pf=0.0,
+            stressed_pf=0.0,
+            degradation_pct=0.0,
+            classification='Unknown',
+            emoji='❓',
+            interpretation='Could not compute - missing scenario data'
+        )
+    
+    baseline_pf = baseline.profit_factor
+    stressed_pf = stressed.profit_factor
+    
+    # Handle edge cases
+    if baseline_pf <= 0 or baseline_pf >= 999:
+        # All wins or all losses - use return instead
+        baseline_val = baseline.total_return_after_costs
+        stressed_val = stressed.total_return_after_costs
+        if baseline_val > 0:
+            degradation = (baseline_val - stressed_val) / baseline_val
+        else:
+            degradation = 0.0
+    else:
+        degradation = (baseline_pf - stressed_pf) / baseline_pf
+    
+    degradation_pct = degradation * 100
+    
+    # Classify
+    if degradation < 0.10:
+        classification = 'Robust'
+        emoji = '✅'
+        interpretation = 'Strategy holds well under realistic execution conditions'
+    elif degradation < 0.25:
+        classification = 'Moderate'
+        emoji = '⚠️'
+        interpretation = 'Some sensitivity to execution, but acceptable'
+    elif degradation < 0.50:
+        classification = 'Fragile'
+        emoji = '🟠'
+        interpretation = 'Significant execution dependency - monitor closely'
+    else:
+        classification = 'Overfit'
+        emoji = '❌'
+        interpretation = 'Strategy may not survive real trading conditions'
+    
+    return OverfitScore(
+        baseline_pf=baseline_pf,
+        stressed_pf=stressed_pf,
+        degradation_pct=degradation_pct,
+        classification=classification,
+        emoji=emoji,
+        interpretation=interpretation
+    )
+
+
+def format_overfit_summary(score: OverfitScore, scenario_results: Dict[str, ScenarioResult]) -> str:
+    """Format overfit analysis as markdown."""
+    # Get return degradation too
+    opt = scenario_results.get('optimistic')
+    real = scenario_results.get('realistic')
+    
+    if opt and real:
+        return_baseline = opt.total_return_after_costs
+        return_stressed = real.total_return_after_costs
+        return_degradation = ((return_baseline - return_stressed) / return_baseline * 100) if return_baseline > 0 else 0
+    else:
+        return_degradation = 0
+    
+    lines = [
+        "## Overfit Detection",
+        "",
+        f"| Metric | Baseline (Optimistic) | Stressed (Realistic) | Degradation |",
+        f"|--------|----------------------|---------------------|-------------|",
+        f"| Profit Factor | {score.baseline_pf:.2f} | {score.stressed_pf:.2f} | {score.degradation_pct:.1f}% |",
+    ]
+    
+    if opt and real:
+        lines.append(
+            f"| Return | ${opt.total_return_after_costs:,.0f} | ${real.total_return_after_costs:,.0f} | {return_degradation:.1f}% |"
+        )
+    
+    lines.extend([
+        "",
+        f"**Verdict:** {score.emoji} **{score.classification}** — {score.interpretation}",
+    ])
+    
+    return "\n".join(lines)
+

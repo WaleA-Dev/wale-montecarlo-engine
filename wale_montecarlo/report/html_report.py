@@ -90,6 +90,7 @@ def generate_html_report(
     bootstrap_result: 'BootstrapResult',
     ruin_result: Optional['RuinResult'] = None,
     scenario_results: Optional[Dict] = None,
+    overfit_score: Optional['OverfitScore'] = None,
     title: str = "Monte Carlo Analysis Report"
 ) -> str:
     """
@@ -242,6 +243,40 @@ def generate_html_report(
             <tr><td>50% Drawdown (Ruin)</td><td class="negative">{ruin_result.prob_50pct_dd:.1%}</td></tr>
         </table>
         <p><strong>Recommended Minimum Capital:</strong> ${ruin_result.recommended_capital:,.0f}</p>
+    </div>
+"""
+    
+    # Add overfit detection if available
+    if overfit_score:
+        # Determine color class based on classification
+        overfit_color = {
+            'Robust': '#28a745',
+            'Moderate': '#ffc107', 
+            'Fragile': '#fd7e14',
+            'Overfit': '#dc3545'
+        }.get(overfit_score.classification, '#6c757d')
+        
+        html += f"""
+    <div class="card">
+        <h2>🎯 Overfit Detection</h2>
+        <div style="text-align: center; margin: 20px 0;">
+            <div style="font-size: 48px;">{overfit_score.emoji}</div>
+            <div style="font-size: 24px; font-weight: bold; color: {overfit_color};">{overfit_score.classification}</div>
+            <div style="color: #666; margin-top: 5px;">{overfit_score.interpretation}</div>
+        </div>
+        <table>
+            <tr><th>Metric</th><th>Baseline (Optimistic)</th><th>Stressed (Realistic)</th><th>Degradation</th></tr>
+            <tr>
+                <td>Profit Factor</td>
+                <td>{overfit_score.baseline_pf:.2f}</td>
+                <td>{overfit_score.stressed_pf:.2f}</td>
+                <td style="color: {overfit_color};">{overfit_score.degradation_pct:.1f}%</td>
+            </tr>
+        </table>
+        <p style="margin-top: 15px; padding: 10px; background: #f8f9fa; border-radius: 4px;">
+            <strong>Interpretation:</strong> A degradation under 10% suggests robustness. 
+            Over 25% indicates significant sensitivity to execution conditions.
+        </p>
     </div>
 """
     

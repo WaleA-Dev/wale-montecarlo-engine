@@ -48,7 +48,7 @@ def main():
     from .io import load_trade_list
     from .analysis.bootstrap_equity import bootstrap_equity_curves, format_bootstrap_summary
     from .analysis.ruin_probability import estimate_ruin_probability, format_ruin_summary
-    from .analysis.stress_scenarios import run_all_scenarios, format_scenario_comparison
+    from .analysis.stress_scenarios import run_all_scenarios, format_scenario_comparison, compute_overfit_score, format_overfit_summary
     from .report.html_report import generate_html_report, save_report
     
     # Load trades
@@ -84,12 +84,17 @@ def main():
     ruin = estimate_ruin_probability(trades, starting_capital=capital, seed=42)
     print(format_ruin_summary(ruin))
     
-    # Stress scenarios
+    # Stress scenarios and overfit detection
     scenarios = None
+    overfit = None
     if run_stress:
         print(f"\nRunning stress scenarios...")
         scenarios = run_all_scenarios(trades)
         print(format_scenario_comparison(scenarios))
+        
+        # Compute overfit score
+        overfit = compute_overfit_score(scenarios)
+        print(f"\n{format_overfit_summary(overfit, scenarios)}")
     
     # Generate HTML report
     if args.command == 'analyze':
@@ -101,6 +106,7 @@ def main():
             bootstrap_result=bootstrap,
             ruin_result=ruin,
             scenario_results=scenarios,
+            overfit_score=overfit,
             title=f"Monte Carlo Analysis: {trades_path.name}"
         )
         save_report(html, str(output_path))
