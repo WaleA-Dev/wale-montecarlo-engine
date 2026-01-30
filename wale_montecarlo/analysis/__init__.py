@@ -31,6 +31,11 @@ from .convergence import (
     find_pareto_front,
     compute_overfit_score,
 )
+from .interactions import (
+    analyze_interactions,
+    interaction_adjusted_prediction,
+    summarize_interactions,
+)
 
 __all__ = [
     'compute_quantiles',
@@ -53,5 +58,8 @@ __all__ = [
     'pareto_rank',
     'find_pareto_front',
     'compute_overfit_score',
+    'analyze_interactions',
+    'interaction_adjusted_prediction',
+    'summarize_interactions',
 ]
 

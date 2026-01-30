@@ -12,6 +12,7 @@ from wale_montecarlo.models import Trade, TradeSide
 from wale_montecarlo.perturbations.skip import apply_skip
 from wale_montecarlo.perturbations.slippage import apply_slippage
 from wale_montecarlo.perturbations.shuffle import apply_shuffle
+from wale_montecarlo.perturbations.bootstrap import apply_bootstrap
 
 
 def generate_constant_trades(n: int = 100, pnl: float = 100.0) -> List[Trade]:
@@ -221,6 +222,51 @@ class TestOverfitClassification:
         
         result = classify_overfit(baseline_pf=3.0, stressed_pf_p50=0.9)
         assert result == 'Overfit'
+
+
+class TestBootstrapVariance:
+    """Bootstrap resampling should NOT change the mean but SHOULD change variance."""
+    
+    def test_bootstrap_preserves_mean(self):
+        """Bootstrap should not significantly change the mean total PnL."""
+        trades = generate_random_trades(n=50, mean_pnl=100.0, std_pnl=200.0, seed=42)
+        baseline_mean = np.mean([t.pnl for t in trades]) * len(trades)
+        
+        # Run many bootstrap samples
+        bootstrap_means = []
+        for seed in range(200):
+            rng = np.random.default_rng(seed)
+            result = apply_bootstrap(trades, mode='trade_bootstrap', block_len=10, rng=rng)
+            bootstrap_means.append(sum(t.pnl for t in result))
+        
+        # Mean of bootstrap samples should be close to baseline
+        mean_of_bootstrap = np.mean(bootstrap_means)
+        # Allow 10% tolerance for sampling variation
+        assert abs(mean_of_bootstrap - baseline_mean) < abs(baseline_mean) * 0.10
+    
+    def test_bootstrap_maintains_or_increases_variance(self):
+        """Bootstrap variance should typically be equal to or larger than no-bootstrap."""
+        trades = generate_random_trades(n=50, mean_pnl=100.0, std_pnl=200.0, seed=42)
+        
+        # Run with no bootstrap (just different seeds for any randomness)
+        no_boot_totals = []
+        for seed in range(200):
+            total = sum(t.pnl for t in trades)  # Same trades each time
+            no_boot_totals.append(total)
+        
+        # Run with bootstrap
+        boot_totals = []
+        for seed in range(200):
+            rng = np.random.default_rng(seed)
+            result = apply_bootstrap(trades, mode='trade_bootstrap', block_len=10, rng=rng)
+            boot_totals.append(sum(t.pnl for t in result))
+        
+        var_no_boot = np.var(no_boot_totals)
+        var_boot = np.var(boot_totals)
+        
+        # Bootstrap should introduce variance (no-bootstrap has zero variance)
+        assert var_boot > var_no_boot
+        print(f"Variance ratio (boot/none): {var_boot / (var_no_boot + 1e-10):.2f}")
 
 
 if __name__ == '__main__':
