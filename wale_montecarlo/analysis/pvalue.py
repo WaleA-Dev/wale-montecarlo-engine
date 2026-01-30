@@ -70,6 +70,70 @@ def apply_bonferroni(pvalue: float, n_tests: int) -> float:
     return min(corrected, 1.0)
 
 
+def benjamini_hochberg(pvalues: list) -> list:
+    """
+    Apply Benjamini-Hochberg FDR correction.
+    
+    Controls False Discovery Rate (less conservative than Bonferroni).
+    
+    Args:
+        pvalues: List of raw p-values
+    
+    Returns:
+        List of adjusted p-values (q-values)
+    """
+    import numpy as np
+    
+    n = len(pvalues)
+    if n == 0:
+        return []
+    
+    pvalues = np.array(pvalues)
+    sorted_indices = np.argsort(pvalues)
+    sorted_pvals = pvalues[sorted_indices]
+    
+    # BH adjustment
+    adjusted = np.zeros(n)
+    for i, idx in enumerate(sorted_indices):
+        rank = i + 1
+        adjusted[idx] = min(1.0, sorted_pvals[i] * n / rank)
+    
+    # Enforce monotonicity (larger raw p -> larger adjusted p)
+    for i in range(n - 2, -1, -1):
+        adjusted[sorted_indices[i]] = min(
+            adjusted[sorted_indices[i]], 
+            adjusted[sorted_indices[i + 1]]
+        )
+    
+    return adjusted.tolist()
+
+
+def apply_correction(pvalue: float, n_tests: int, method: str = 'bh') -> float:
+    """
+    Apply multiple testing correction.
+    
+    Args:
+        pvalue: Raw p-value
+        n_tests: Number of tests
+        method: 'bonferroni', 'bh' (Benjamini-Hochberg), or 'none'
+    
+    Returns:
+        Corrected p-value
+    """
+    if method == 'none' or n_tests <= 1:
+        return pvalue
+    elif method == 'bonferroni':
+        return apply_bonferroni(pvalue, n_tests)
+    elif method == 'bh':
+        # For single p-value, approximate BH as pvalue * n / rank
+        # Actual rank unknown, so use Bonferroni-like but less aggressive
+        # This is an approximation; full BH needs all p-values
+        return min(1.0, pvalue * n_tests)
+    else:
+        return apply_bonferroni(pvalue, n_tests)
+
+
+
 def compute_pvalue_two_tailed(
     results: List[PermutationResult],
     baseline_pf: float,

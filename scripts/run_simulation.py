@@ -75,7 +75,27 @@ def main():
         help="Show configuration without running"
     )
 
+    parser.add_argument(
+        "--mode",
+        type=str,
+        choices=['explore', 'focus', 'full'],
+        default=None,
+        help="Grid mode: explore (128 cells, 20K perms), focus (200 cells, 100K perms), full (6048 cells, 200K perms)"
+    )
+
     args = parser.parse_args()
+
+    # Apply mode presets if specified
+    if args.mode:
+        from wale_montecarlo.config import get_grid_config, DEFAULT_CONFIG
+        
+        mode_perms = DEFAULT_CONFIG['perms_per_mode']
+        if args.n_per_cell == 1000:  # Default wasn't overridden
+            args.n_per_cell = mode_perms.get(args.mode, 50000)
+        
+        # Store grid config for later use
+        args.grid_config = get_grid_config(args.mode)
+        print(f"Using {args.mode} mode: {args.n_per_cell:,} perms/cell")
 
     # Status check mode
     if args.status:

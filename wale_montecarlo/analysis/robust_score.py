@@ -21,7 +21,7 @@ def compute_robust_score(
     """
     Compute robust score from median profit factor and p-value.
 
-    Formula: PF_P50 × (1 - p_corrected)
+    Formula: PF_P50 * (1 - p_corrected)
 
     High score requires both:
     - High median profit factor
@@ -29,7 +29,7 @@ def compute_robust_score(
 
     Args:
         pf_p50: Median profit factor (P50)
-        p_corrected: Bonferroni-corrected p-value
+        p_corrected: Corrected p-value
 
     Returns:
         Robust score (higher is better)
@@ -41,6 +41,110 @@ def compute_robust_score(
     pf_p50 = max(0.0, min(999.0, pf_p50))
 
     return pf_p50 * (1 - p_corrected)
+
+
+def compute_robust_score_v3(
+    pf_p50: float,
+    p_corrected: float,
+    maxdd_p95: float = 0.0,
+    dd_penalty_start: float = 0.20,
+    dd_penalty_end: float = 0.60
+) -> float:
+    """
+    Compute robust score v3 with gated multiplicative formula.
+    
+    Formula: max(0, PF - 1.0) * (1 - p_val) * dd_penalty
+    
+    Key properties:
+    - PF <= 1.0 (breakeven or losing) scores exactly 0
+    - Only excess return above breakeven contributes
+    - Significance scales the excess return
+    - High drawdown reduces or zeros the score
+    
+    Args:
+        pf_p50: Median profit factor (P50)
+        p_corrected: Corrected p-value
+        maxdd_p95: 95th percentile max drawdown (0 to 1, e.g. 0.25 = 25%)
+        dd_penalty_start: Drawdown at which penalty starts (default 20%)
+        dd_penalty_end: Drawdown at which score becomes 0 (default 60%)
+    
+    Returns:
+        Robust score v3 (higher is better, 0 = no edge)
+    """
+    # Gated: only excess return above breakeven counts
+    excess_return = max(0.0, pf_p50 - 1.0)
+    
+    # Significance component
+    p_corrected = max(0.0, min(1.0, p_corrected))
+    significance = 1.0 - p_corrected
+    
+    # Drawdown penalty: linear from dd_penalty_start to dd_penalty_end
+    # Score = 1.0 at dd_penalty_start, 0.0 at dd_penalty_end
+    if maxdd_p95 <= dd_penalty_start:
+        dd_penalty = 1.0
+    elif maxdd_p95 >= dd_penalty_end:
+        dd_penalty = 0.0
+    else:
+        dd_range = dd_penalty_end - dd_penalty_start
+        dd_penalty = (dd_penalty_end - maxdd_p95) / dd_range
+    
+    return excess_return * significance * dd_penalty
+
+
+def classify_overfit(
+    baseline_pf: float,
+    stressed_pf_p50: float,
+    robust_threshold: float = 1.5,
+    fragile_threshold: float = 1.0
+) -> str:
+    """
+    Classify strategy overfitting based on degradation under stress.
+    
+    Args:
+        baseline_pf: Original backtest profit factor
+        stressed_pf_p50: Median PF at moderate stress (p_skip=0.05, slip=$100, delay=1)
+        robust_threshold: PF threshold for 'Robust' classification
+        fragile_threshold: PF threshold for 'Fragile' classification
+    
+    Returns:
+        Classification: 'Robust', 'Fragile', 'Overfit', or 'Highly Overfit'
+    """
+    # Calculate degradation rate
+    if baseline_pf > 0:
+        degradation = (baseline_pf - stressed_pf_p50) / baseline_pf
+    else:
+        degradation = 1.0
+    
+    # Classify based on stressed performance
+    if stressed_pf_p50 >= robust_threshold:
+        return 'Robust'
+    elif stressed_pf_p50 >= fragile_threshold:
+        return 'Fragile'
+    elif stressed_pf_p50 >= 0.8:  # Still slightly profitable
+        return 'Overfit'
+    else:
+        return 'Highly Overfit'
+
+
+def compute_degradation_rate(
+    baseline_pf: float,
+    stressed_pf_p50: float
+) -> float:
+    """
+    Compute degradation rate (how much edge is lost under stress).
+    
+    Args:
+        baseline_pf: Original backtest profit factor
+        stressed_pf_p50: Median PF under stress
+    
+    Returns:
+        Degradation rate (0 to 1, higher = more degradation)
+    """
+    if baseline_pf <= 0:
+        return 1.0
+    
+    degradation = (baseline_pf - stressed_pf_p50) / baseline_pf
+    return max(0.0, min(1.0, degradation))
 
 
 def compute_robust_score_from_results(

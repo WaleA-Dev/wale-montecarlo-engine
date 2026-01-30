@@ -55,11 +55,17 @@ pip install -r requirements.txt
 # Navigate to the engine directory first
 cd C:\Users\wale\wale-montecarlo-engine
 
-# Run with your trade list (adjust --n_per_cell as needed)
-python scripts/run_simulation.py --trades your_trades.csv --n_per_cell 1000 --jobs 8
+# Quick exploration (128 cells x 20K perms, 2-4 hours)
+python scripts/run_simulation.py --trades your_trades.csv --mode explore --jobs 8
 
-# Or run with the sample data
-python scripts/run_simulation.py --trades examples/sample_trade_list.csv --n_per_cell 1000 --jobs 8
+# Focused analysis (200 cells x 100K perms, 4-8 hours)
+python scripts/run_simulation.py --trades your_trades.csv --mode focus --jobs 8
+
+# Full publication run (6048 cells x 200K perms, 24-48 hours)
+python scripts/run_simulation.py --trades your_trades.csv --mode full --jobs 8
+
+# Or custom permutation count
+python scripts/run_simulation.py --trades your_trades.csv --n_per_cell 50000 --jobs 8
 ```
 
 ### Check Progress While Running
