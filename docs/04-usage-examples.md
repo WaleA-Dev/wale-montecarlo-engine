@@ -8,227 +8,164 @@ This document provides practical examples for common use cases.
 
 ### Required Files
 
-Your strategy output folder should contain:
-
-```
-backtest/out/export_YYYYMMDD_HHMMSS/
-├── trade_list.csv       # Required
-├── equity_curve.csv     # Required  
-└── step1_report.txt     # Optional but recommended
-```
-
-Plus OHLC data in the repo root:
-```
-jan_2_data_to_now.csv    # Required for delay model
-```
-
-### trade_list.csv Format
+All you need is a trade list CSV (any filename, passed via `--trades`):
 
 ```csv
-entry_time,exit_time,entry_price,exit_price,pnl,qty,side
-2024-01-15T09:30:00,2024-01-15T10:45:00,15234.5,15267.25,654.00,2,long
-2024-01-15T11:15:00,2024-01-15T11:58:00,15289.0,15245.75,-864.50,2,short
-...
+entry_time,exit_time,entry_price,exit_price,pnl,side,quantity,symbol
+2024-01-15 09:30:00,2024-01-15 10:45:00,15234.5,15267.25,654.00,long,2,NQ
+2024-01-15 11:15:00,2024-01-15 11:58:00,15289.0,15245.75,-864.50,short,2,NQ
 ```
 
-### equity_curve.csv Format
+Optionally, place `ohlc.csv` (or `price_data.csv`) in the same directory as
+your trade list to enable the OHLC-based delay model (see
+`scripts/fetch_ohlc.py` for fetching data from Databento).
 
-```csv
-time,equity
-2024-01-15T09:30:00,100000.00
-2024-01-15T09:31:00,100012.50
-2024-01-15T09:32:00,99987.25
-...
-```
+A ready-made sample lives at `examples/sample_trade_list.csv`.
 
 ---
 
-## Example 1: Full 200K Grid Run
+## Example 1: Quick Exploration Run
 
-The complete stress test with all parameter combinations.
+Start here. 128 cells covering the main perturbation dimensions.
 
-### Command
-
-```powershell
-# Set up environment
-$env:PYTHONHASHSEED = "0"
-cd "C:\Users\wale\wale_backtest\codex\1.7.26 data"
-
-# Start the run
-python CURSOR_run_surface_full_200k.py `
-    --repo "." `
-    --n_per_cell 200000 `
-    --jobs 8 `
-    *> "backtest\out\montecarlo\console_log.txt"
+```bash
+python scripts/run_simulation.py \
+    --trades examples/sample_trade_list.csv \
+    --mode explore \
+    --jobs 8
 ```
+
+`--mode explore` defaults to 20,000 permutations per cell. Add
+`--n_per_cell 500` for a fast smoke test (finishes in seconds).
 
 ### What Happens
 
 1. **Initialization**:
-   - Loads trade_list.csv, equity_curve.csv, OHLC data
-   - Builds grid: ~1,500 cells (with delay=1 fixed)
-   - Creates output directory with timestamp
+   - Loads your trade list and computes baseline metrics (PF, return, drawdown)
+   - Builds the grid (128 cells in explore mode)
+   - Creates `montecarlo_output/mc_run_<timestamp>/`
 
 2. **Processing**:
-   - Spawns 8 parallel worker processes
-   - Each worker processes cells sequentially
-   - Progress logged every 60 seconds
+   - Spawns parallel worker processes
+   - Each worker processes cells and streams results to disk
    - Heartbeat updated every 30 seconds
 
 3. **Output**:
-   - Per-cell: metrics_compact.csv, summary.json, progress.json, logs.txt
-   - Aggregated: progress.csv, grid_summary.csv, heartbeat.json
-   - Completion: DONE.txt sentinel
+   - Per-cell: `metrics_compact.csv`, `summary.json`, `progress.json`, `logs.txt`
+   - Aggregated: `progress.csv`, `grid_summary.csv`, `heartbeat.json`, `run_manifest.json`
+   - Completion: `DONE.txt` sentinel
+
+---
+
+## Example 2: Full 200K Grid Run
+
+The complete stress test with all 6,048 parameter combinations.
+
+```bash
+python scripts/run_simulation.py \
+    --trades your_trades.csv \
+    --mode full \
+    --jobs 8 \
+    > console_log.txt 2>&1
+```
+
+For the repo-style layout (a directory containing `trade_list.csv`), the
+surface runner fixes `delay=1` and runs 1,512 cells:
+
+```bash
+python scripts/run_surface.py --repo path/to/export --n_per_cell 200000 --jobs 8
+```
 
 ### Expected Duration
 
-For 1,500 cells × 200,000 permutations:
-- Ryzen 7700X (8 cores): ~24-48 hours
-- Ryzen 9 5900X (12 cores): ~16-32 hours
-- Intel i9-13900K (24 cores): ~8-16 hours
+Highly hardware dependent. On an 8-core machine expect hours for the full
+grid at 200K perms/cell; use `--dry_run` to see the total permutation count
+and a runtime estimate before committing.
 
 ---
 
-## Example 2: Resume After Interruption
+## Example 3: Resume After Interruption
 
 If the run was interrupted (Ctrl+C, power loss, crash):
 
-### Command
-
-```powershell
-# Use the SAME run_name as before
-python CURSOR_run_surface_full_200k.py `
-    --repo "C:\Users\wale\wale_backtest\codex\1.7.26 data" `
-    --run_name mc_surface_full_200k_20260115_1234 `
-    --n_per_cell 200000 `
-    --jobs 8
+```bash
+python scripts/run_simulation.py --resume mc_run_20260701_164335
 ```
+
+No `--trades` needed — the trades path, permutation target, and grid are
+restored from `run_manifest.json`.
 
 ### What Happens
 
-1. Detects existing run directory
+1. Detects the existing run directory
 2. For each cell:
-   - Reads metrics_compact.csv
-   - Dedupes by perm_index
-   - Finds max_perm_index completed
-   - Resumes from max + 1
-3. Skips cells that already have summary.json
+   - Reads `metrics_compact.csv` (the source of truth)
+   - Dedupes by `perm_index` (first occurrence wins)
+   - Truncates any rows past the target
+   - Resumes from `max(perm_index) + 1`
+3. Cells that are already complete just re-emit their `summary.json`
 
-### Verification
-
-```powershell
-# Check how many cells resumed vs started fresh
-Select-String "RESUME" "backtest\out\montecarlo\mc_surface_full_200k_*\per_cell\*\logs.txt" | Measure-Object
-```
+Resumed results are bit-identical to an uninterrupted run because every
+permutation's seed depends only on `(cell_id, perm_index)`.
 
 ---
 
-## Example 3: Quick Status Check
+## Example 4: Quick Status Check
 
 While a run is in progress:
 
-### Command
-
-```powershell
-python CURSOR_run_surface_full_200k.py `
-    --repo "." `
-    --run_name mc_surface_full_200k_20260115_1234 `
-    --status_only
+```bash
+python scripts/run_simulation.py --status mc_run_20260701_164335
 ```
 
-### Output
+Output:
 
 ```
-============================================================
-STATUS: mc_surface_full_200k_20260115_1234
-============================================================
-Cells complete: 847/1512
-Simulations: 169,400,000/302,400,000 (56.0%)
-Last heartbeat: 2026-01-15T14:30:00
-Current cell: 3_5_0_2_1
-============================================================
+=== Run Status: mc_run_20260701_164335 ===
+Exists: True
+Complete: False
+Cells: 84/128
+Progress: 65.6%
+Last heartbeat: 2026-07-01T16:43:35
 ```
 
-### Alternative: Watch Heartbeat
+### Alternative: Watch the Heartbeat
 
-```powershell
+```bash
 # One-shot
-Get-Content "backtest\out\montecarlo\mc_surface_full_200k_*\aggregated\heartbeat.json" | ConvertFrom-Json
+cat montecarlo_output/mc_run_*/aggregated/heartbeat.json
 
 # Continuous monitoring (every 30 seconds)
-while ($true) {
-    Clear-Host
-    Get-Content "backtest\out\montecarlo\mc_surface_full_200k_*\aggregated\heartbeat.json" | ConvertFrom-Json
-    Start-Sleep 30
-}
+watch -n 30 cat montecarlo_output/mc_run_*/aggregated/heartbeat.json
 ```
 
 ---
 
-## Example 4: Analyze Completed Run
+## Example 5: Analyze a Completed Run
 
-After the run finishes (DONE.txt appears):
+After the run finishes (`DONE.txt` appears):
 
-### Command
-
-```powershell
-python CURSOR_surface_full_200k_analysis.py `
-    --run_dir "C:\Users\wale\wale_backtest\codex\1.7.26 data\backtest\out\montecarlo\mc_surface_full_200k_20260115_1234"
+```bash
+python scripts/analyze_run.py \
+    --run_dir montecarlo_output/mc_run_20260701_164335 \
+    --export_csv
 ```
 
 ### Output Files
 
 ```
 aggregated/analysis/
-├── SURFACE_FULL_200K_DECISION_REPORT.md    # Main report
+├── SURFACE_FULL_DECISION_REPORT.md    # Main report
 └── tables/
     ├── top_50_by_robust_score.csv
     ├── pareto_front_pf_vs_maxdd.csv
     ├── pareto_front_multidim.csv
     ├── plateau_clusters.csv
-    ├── all_cells_verified.csv
-    └── dedupe_summary.csv
+    └── all_cells.csv                  (with --export_csv)
 ```
 
-### View Report
-
-```powershell
-# Open in default markdown viewer
-Start-Process "backtest\out\montecarlo\mc_surface_full_200k_*\aggregated\analysis\SURFACE_FULL_200K_DECISION_REPORT.md"
-
-# Or view in terminal
-Get-Content "backtest\out\montecarlo\mc_surface_full_200k_*\aggregated\analysis\SURFACE_FULL_200K_DECISION_REPORT.md"
-```
-
----
-
-## Example 5: Custom Grid (Faster Exploration)
-
-For initial exploration with fewer permutations:
-
-### Command
-
-```powershell
-python CURSOR_run_surface_full_200k.py `
-    --repo "." `
-    --n_per_cell 50000 `
-    --jobs 8 `
-    --slip_min 25 `
-    --slip_max 150 `
-    --no_zero_slip
-```
-
-### Changes from Default
-
-| Parameter | Default | This Run |
-|-----------|---------|----------|
-| n_per_cell | 200,000 | 50,000 |
-| slip range | 0-300 | 25-150 |
-| zero slip | Included | Excluded |
-
-### Expected Duration
-
-~6-12 hours (4x fewer perms, fewer slip values)
+The report ranks cells by robust score, identifies Pareto-optimal
+parameter combinations, and clusters stable plateaus.
 
 ---
 
@@ -238,22 +175,18 @@ To investigate a specific parameter combination:
 
 ### Step 1: Identify the Cell
 
-From the analysis report, find the cell_id you want to examine:
+From `grid_summary.csv` or the analysis report, find the cell_id:
+
 ```
-Top candidate: cell_3_2_0_1_1
-Parameters: p_skip=0.03, slip=$50, shuffle=permute, bootstrap=trade_bootstrap
+skip0.03_slip50_delay1_shufpermute_boottrade_bootstrap_blk10
 ```
 
-### Step 2: Extract Metrics
+### Step 2: Inspect Its Files
 
-```powershell
-$cellDir = "backtest\out\montecarlo\mc_surface_full_200k_*\per_cell\cell_3_2_0_1_1"
-
-# Summary statistics
-Get-Content "$cellDir\summary.json" | ConvertFrom-Json
-
-# Raw metrics (200K rows)
-Import-Csv "$cellDir\metrics_compact.csv" | Measure-Object -Property profit_factor -Average -Maximum -Minimum
+```bash
+cell=montecarlo_output/mc_run_*/per_cell/cell_skip0.03_slip50_delay1_shufpermute_boottrade_bootstrap_blk10
+cat $cell/summary.json
+head $cell/metrics_compact.csv
 ```
 
 ### Step 3: Distribution Analysis
@@ -262,7 +195,7 @@ Import-Csv "$cellDir\metrics_compact.csv" | Measure-Object -Property profit_fact
 import pandas as pd
 import matplotlib.pyplot as plt
 
-df = pd.read_csv("per_cell/cell_3_2_0_1_1/metrics_compact.csv")
+df = pd.read_csv(f"{cell_dir}/metrics_compact.csv")
 
 fig, axes = plt.subplots(1, 3, figsize=(15, 4))
 
@@ -286,129 +219,90 @@ plt.savefig("cell_distributions.png")
 
 If you have multiple runs with different configurations:
 
-### Step 1: Load Summaries
-
 ```python
 import pandas as pd
 
-run1 = pd.read_csv("mc_run_conservative/aggregated/grid_summary.csv")
-run2 = pd.read_csv("mc_run_aggressive/aggregated/grid_summary.csv")
+run1 = pd.read_csv("montecarlo_output/run_a/aggregated/grid_summary.csv")
+run2 = pd.read_csv("montecarlo_output/run_b/aggregated/grid_summary.csv")
 
-# Merge on cell_id
-merged = run1.merge(run2, on="cell_id", suffixes=("_cons", "_agg"))
-```
+merged = run1.merge(run2, on="cell_id", suffixes=("_a", "_b"))
 
-### Step 2: Compare
-
-```python
-# Cells that improved
-improved = merged[merged["robust_score_agg"] > merged["robust_score_cons"]]
+improved = merged[merged["robust_score_b"] > merged["robust_score_a"]]
 print(f"Improved: {len(improved)} cells")
-
-# Cells that got worse
-worse = merged[merged["robust_score_agg"] < merged["robust_score_cons"]]
-print(f"Degraded: {len(worse)} cells")
-
-# Correlation
-print(f"Correlation: {merged['robust_score_cons'].corr(merged['robust_score_agg']):.3f}")
+print(f"Correlation: {merged['robust_score_a'].corr(merged['robust_score_b']):.3f}")
 ```
 
 ---
 
 ## Example 8: Export for External Analysis
 
-Export data for use in R, Julia, or other tools:
-
-### Export Grid Summary to Excel
-
 ```python
 import pandas as pd
 
-df = pd.read_csv("aggregated/grid_summary.csv")
+df = pd.read_csv("montecarlo_output/mc_run_.../aggregated/grid_summary.csv")
 df.to_excel("grid_summary.xlsx", index=False)
 ```
 
-### Export All Cell Metrics
-
-```powershell
-# Create combined CSV with all cells
-$output = "all_cells_metrics.csv"
-$first = $true
-
-Get-ChildItem "per_cell\cell_*\metrics_compact.csv" | ForEach-Object {
-    $df = Import-Csv $_
-    $cellId = $_.Directory.Name -replace "cell_", ""
-    
-    # Add cell_id column
-    $df | ForEach-Object { $_ | Add-Member -NotePropertyName "cell_id" -NotePropertyValue $cellId -PassThru }
-    
-    if ($first) {
-        $df | Export-Csv $output -NoTypeInformation
-        $first = $false
-    } else {
-        $df | Export-Csv $output -NoTypeInformation -Append
-    }
-}
-```
+Or use `--export_csv` on the analysis script to get `all_cells.csv` with
+every metric for every cell in one file.
 
 ---
 
 ## Troubleshooting
 
-### Error: OHLC data not found
+### Error: Trade file not found
 
 ```
-ERROR: OHLC CSV not found. Specify --ohlc_csv or place jan_2_data_to_now.csv in repo root.
+Error: Trade file not found: /path/to/trades.csv
 ```
 
-**Fix**: Ensure your OHLC file exists and matches the expected format.
+**Fix**: Check the `--trades` path. Relative paths are resolved from your
+current working directory.
 
-### Error: trade_list.csv not found
+### Delay model falls back to statistical mode
+
+If no OHLC file is found next to your trade list, delays are modeled
+statistically instead of with real prices. Place `ohlc.csv` in the same
+directory as your trade list (see `scripts/fetch_ohlc.py`).
+
+### Warning: duplicates repaired on resume
 
 ```
-ERROR: trade_list.csv not found at C:\...\backtest\out\...\trade_list.csv
+Repaired metrics_compact.csv (duplicates=True, truncated=0)
 ```
 
-**Fix**: Specify `--input_dir` pointing to your export folder, or ensure the auto-detection finds your latest export.
-
-### Warning: Many duplicates dropped
-
-If you see messages about thousands of duplicates:
-```
-[2026-01-15T14:30:00] DEDUPE: Removed 15,000 duplicate rows
-```
-
-This indicates previous resume issues. The system handles it automatically, but the run took longer than necessary.
+This means a previous run wrote overlapping rows (e.g. crash mid-write).
+The engine dedupes automatically; results remain correct.
 
 ### Run seems stuck
 
-Check heartbeat:
-```powershell
-Get-Content "aggregated\heartbeat.json"
+Check the heartbeat:
+
+```bash
+cat montecarlo_output/mc_run_*/aggregated/heartbeat.json
 ```
 
-If `timestamp` hasn't updated in >60 seconds, something is wrong. Check:
-1. Process still running? (Task Manager)
-2. Disk full?
-3. Cell crashed? (Check per_cell/cell_*/logs.txt)
+If `timestamp` hasn't updated in >60 seconds, check:
+1. Is the process still running?
+2. Is the disk full?
+3. Did a cell crash? (Check `per_cell/cell_*/logs.txt`)
 
 ---
 
 ## Best Practices
 
-1. **Always use `$env:PYTHONHASHSEED = "0"`** for reproducibility
+1. **Start with `--mode explore`** and a small `--n_per_cell`, then scale up
 
-2. **Redirect output to file** for long runs:
-   ```powershell
-   *> "console_log.txt"
+2. **Redirect output to a file** for long runs:
+   ```bash
+   python scripts/run_simulation.py ... > console_log.txt 2>&1
    ```
 
-3. **Start with fewer permutations** (50K) for exploration, then scale up
+3. **Monitor the heartbeat** periodically during long runs
 
-4. **Monitor heartbeat** periodically during long runs
+4. **Run the analysis immediately after completion** while context is fresh
 
-5. **Run analysis immediately after completion** while context is fresh
+5. **Use `--resume <run_name>`** after any interruption — never delete a
+   partial run, the engine repairs and continues it
 
-6. **Save your command** so you can resume with exact same parameters
-
-7. **Use SSD** if possible  -  lots of small file I/O
+6. **Use an SSD** if possible — lots of small file I/O

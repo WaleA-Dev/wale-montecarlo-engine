@@ -4,4 +4,6 @@ from .defaults import (
     EXPLORATION_GRID,
     FULL_GRID,
     get_grid_config,
+    get_perms_for_mode,
+    count_grid_cells,
 )
