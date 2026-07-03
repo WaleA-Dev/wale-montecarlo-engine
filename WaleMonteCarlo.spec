@@ -1,16 +1,23 @@
 # -*- mode: python ; coding: utf-8 -*-
-# PyInstaller spec for WaleMonteCarlo.exe
+# PyInstaller spec for WaleMonteCarlo.exe (windowed native-desktop app)
 # Build:  pyinstaller WaleMonteCarlo.spec --noconfirm
+
+from PyInstaller.utils.hooks import collect_all
+
+# pywebview needs its packaged WebView2 loader DLLs and pythonnet/clr backend
+wv_datas, wv_binaries, wv_hidden = collect_all('webview')
+clr_datas, clr_binaries, clr_hidden = collect_all('clr_loader')
+net_datas, net_binaries, net_hidden = collect_all('pythonnet')
 
 a = Analysis(
     ['app.py'],
     pathex=[],
-    binaries=[],
+    binaries=wv_binaries + clr_binaries + net_binaries,
     datas=[
         ('wale_montecarlo/webapp/templates', 'wale_montecarlo/webapp/templates'),
         ('wale_montecarlo/webapp/static', 'wale_montecarlo/webapp/static'),
-    ],
-    hiddenimports=[],
+    ] + wv_datas + clr_datas + net_datas,
+    hiddenimports=wv_hidden + clr_hidden + net_hidden + ['clr'],
     hookspath=[],
     hooksconfig={},
     runtime_hooks=[],
@@ -32,13 +39,14 @@ exe = EXE(
     a.datas,
     [],
     name='WaleMonteCarlo',
+    icon='assets/icon.ico',
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,
     upx=False,
     upx_exclude=[],
     runtime_tmpdir=None,
-    console=True,          # console shows server status; closing it quits the app
+    console=False,         # windowed: no console; the native window IS the app
     disable_windowed_traceback=False,
     argv_emulation=False,
     target_arch=None,

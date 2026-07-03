@@ -1,6 +1,7 @@
-# Core (web UI + analysis engine)
+# Core (desktop app + analysis engine)
 numpy>=1.24.0
 flask>=3.0.0
+pywebview>=5.0     # native desktop window (WebView2)
 
 # Research grid CLI extras (scripts/run_simulation.py)
 tqdm>=4.65.0

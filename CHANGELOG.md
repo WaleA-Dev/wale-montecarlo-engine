@@ -3,8 +3,10 @@
 ## 2026-07-03 — v2.0: Strategy Stress Lab
 
 ### Added
-- **Desktop app**: `WaleMonteCarlo.exe` (PyInstaller one-file, ~24 MB) — double-click,
-  browser opens, drag in a CSV. Built from `WaleMonteCarlo.spec`.
+- **Desktop app**: `WaleMonteCarlo.exe` (PyInstaller one-file, ~27 MB) — double-click
+  and a native application window opens (WebView2 via pywebview, custom icon,
+  no console, no browser). Falls back to the default browser if WebView2 is
+  unavailable. Built from `WaleMonteCarlo.spec`.
 - **Web UI** (`wale_montecarlo/webapp/`): dark dashboard with verdict plate,
   equity cone, P&L / drawdown distributions, ruin ladder, stress-scenario table,
   and one-click standalone HTML report export. Chart.js bundled locally — fully offline.
