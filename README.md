@@ -1,142 +1,130 @@
-# Wale Monte Carlo Backtesting Engine
+# Wale Monte Carlo — Strategy Stress Lab
 
-> A Monte Carlo simulation framework for stress-testing trading strategies under realistic market conditions.
+> Drop in a trade list. Get a verdict: does your strategy's edge survive reality?
 
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
 [![License: CC BY-NC-SA 4.0](https://img.shields.io/badge/License-CC%20BY--NC--SA%204.0-lightgrey.svg)](https://creativecommons.org/licenses/by-nc-sa/4.0/)
 
----
+If you run a systematic strategy, your backtest is one path through history — and
+usually a lucky one. This tool resamples, reorders, and degrades that path tens of
+thousands of times to answer the questions that actually matter:
 
-## What This Is (And Why It Matters)
+- **Is the edge real,** or an artifact of one lucky trade sequence?
+- **What drawdown should I actually expect** — not the one backtest path, but the distribution?
+- **Does the edge survive execution friction** (missed trades, slippage) scaled to *your* trade size?
+- **How much capital do I need** so a normal losing streak doesn't ruin me?
 
-If you're running a systematic trading strategy, you've probably asked yourself: *"Is my backtest too good to be true?"* or *"Is my strategy overfit?"*
-
-The honest answer is usually: *yes, probably.*
-
-This engine exists to answer a harder question: **"What happens when everything that can go wrong, does go wrong?"**
-
-We do this by running hundreds of thousands of Monte Carlo simulations that systematically degrade your backtest in realistic ways:
-- What if you miss trades due to technical issues?
-- What if slippage is worse than expected?
-- What if execution is delayed by a few bars?
-- What if the sequence of trades was just lucky?
-
-The result isn't a single equity curve - it's a *distribution* of outcomes. And from that distribution, you can make actual decisions about position sizing, risk limits, and whether this strategy is worth trading at all.
-
----
-
-## Table of Contents
-
-1. [Quick Start](#quick-start)
-2. [The Philosophy](#the-philosophy)
-3. [Architecture Overview](#architecture-overview)
-4. [Perturbation Models](#perturbation-models)
-5. [Grid Search System](#grid-search-system)
-6. [Resume & Correctness Guarantees](#resume--correctness-guarantees)
-7. [Statistical Analysis](#statistical-analysis)
-8. [File Structure](#file-structure)
-9. [Command Reference](#command-reference)
-10. [FAQ](#faq)
+Everything runs locally. Your trades never leave your machine.
 
 ---
 
 ## Quick Start
 
-### Install Dependencies
+### Option 1 — Desktop app (no Python required)
+
+Download `WaleMonteCarlo.exe` from [Releases](https://github.com/WaleA-Dev/wale-montecarlo-engine/releases),
+double-click it, and your browser opens the Strategy Stress Lab. Drag in a trade
+list CSV, set your capital, hit **Run stress test**. You get:
+
+- A **verdict plate**: Robust / Moderate / Fragile / Overfit, with the specific reasons as pass/fail flags
+- **Equity cone** — your backtest path against the 5th–95th percentile band of 10,000 resampled paths
+- **Final P&L distribution** and probability of ending at a loss
+- **Max-drawdown distribution** plus a *luck detector* (was your smooth equity curve just lucky ordering?)
+- **Ruin ladder** — probability of hitting 10/20/30/40/50% drawdowns at your capital
+- **Execution stress scenarios** with friction scaled to your median trade notional
+- One-click **standalone HTML report** you can share or archive
+
+### Option 2 — From source
 
 ```bash
-cd wale-montecarlo-engine
 pip install -r requirements.txt
+python app.py                      # desktop launcher (opens browser)
+# or
+python -m wale_montecarlo serve    # same UI, explicit port control
 ```
 
-### Run a Simulation
+### Option 3 — CLI report
 
-```powershell
-# Navigate to the engine directory first
-cd C:\Users\wale\wale-montecarlo-engine
-
-# Quick exploration (128 cells x 20K perms, 2-4 hours)
-python scripts/run_simulation.py --trades your_trades.csv --mode explore --jobs 8
-
-# Focused analysis (200 cells x 100K perms, 4-8 hours)
-python scripts/run_simulation.py --trades your_trades.csv --mode focus --jobs 8
-
-# Full publication run (6048 cells x 200K perms, 24-48 hours)
-python scripts/run_simulation.py --trades your_trades.csv --mode full --jobs 8
-
-# Or custom permutation count
-python scripts/run_simulation.py --trades your_trades.csv --n_per_cell 50000 --jobs 8
+```bash
+python -m wale_montecarlo analyze trades.csv --capital 100000 --output report.html
 ```
 
-### Check Progress While Running
+### Build the exe yourself
 
-```powershell
-# Make sure you run this from the engine directory
-cd C:\Users\wale\wale-montecarlo-engine
-
-# Check the heartbeat file (replace run name with yours)
-type montecarlo_output\mc_run_YYYYMMDD_HHMMSS\aggregated\heartbeat.json
-
-# Or use the status flag
-python scripts/run_simulation.py --trades your_trades.csv --status mc_run_YYYYMMDD_HHMMSS
+```bash
+pip install pyinstaller
+pyinstaller WaleMonteCarlo.spec --noconfirm     # -> dist/WaleMonteCarlo.exe
 ```
 
-### Dry Run (Preview Config)
+### Run tests
 
-```powershell
-python scripts/run_simulation.py --trades your_trades.csv --dry_run
-```
-
-### Run Tests
-
-```powershell
-python -m pytest tests/ -v
+```bash
+python -m pytest tests/ -q     # 117 tests
 ```
 
 ---
 
-## Trade List Format
+## Supported Trade List Formats
 
-Your trade list CSV must have these columns:
+Format detection is automatic — drop the file in as-is:
 
-| Column | Type | Description |
-|--------|------|-------------|
-| `entry_time` | datetime | When you entered the trade |
-| `exit_time` | datetime | When you exited the trade |
-| `entry_price` | float | Entry price |
-| `exit_price` | float | Exit price |
-| `pnl` | float | Profit/loss in dollars |
-| `side` | string | `long` or `short` |
-| `quantity` | int | Number of contracts/shares |
-| `symbol` | string | Ticker symbol (optional) |
+| Format | How it's recognized |
+|--------|--------------------|
+| **TradingView "List of trades" export** | Two rows per trade (`Entry long` / `Exit long`), `Net P&L USD` — the CSV you get from the Strategy Tester's export button |
+| **Native format** | Columns `entry_time, exit_time, entry_price, exit_price, pnl, side, quantity` |
+| **Generic broker export** | Any CSV with a recognizable P&L column (`pnl`, `profit`, `Profit/Loss`, `realized pnl`, …); dates optional |
 
-### Example trade_list.csv
+Currency symbols, thousands separators, parenthesized negatives, BOMs, and open
+(incomplete) trades are all handled. If a file can't be parsed, the error tells
+you exactly which columns were found and what was expected.
 
-```csv
-entry_time,exit_time,entry_price,exit_price,pnl,side,quantity,symbol
-2023-01-19 12:30:00,2023-01-23 15:30:00,11284.33,11841.49,4272.27,long,8,NQ
-2023-02-10 12:30:00,2023-03-23 09:30:00,12223.63,12735.60,3896.08,long,8,NQ
-2023-04-05 13:30:00,2023-05-19 14:30:00,12926.38,13775.96,6583.02,long,8,NQ
-```
+---
 
-### Converting from Other Formats
+## What the Analysis Does (and the statistics behind it)
 
-If your broker exports trades differently, you may need to rename columns:
+**1. Bootstrap resampling.** Trades are resampled with replacement 10,000 times
+(fixed position size, additive P&L). This produces distributions — not point
+estimates — for final P&L, profit factor, and max drawdown. If 30% of resamples
+lose money, your edge is fragile no matter how good the single backtest looked.
 
-```python
-import pandas as pd
+**2. Shuffle test (luck detector).** Trades are permuted without replacement.
+Total P&L is invariant; only the *path* changes. If your original ordering's max
+drawdown sits in the bottom 10% of shuffled orderings, your smooth equity curve
+was partly lucky sequencing — expect the shuffled-median drawdown going forward.
 
-df = pd.read_csv('broker_export.csv')
-df = df.rename(columns={
-    'Entry Date': 'entry_time',
-    'Exit Date': 'exit_time',
-    'Entry Price': 'entry_price',
-    'Exit Price': 'exit_price',
-    'Profit/Loss': 'pnl',
-    'Type': 'side',
-    'Qty': 'quantity'
-})
-df.to_csv('trade_list.csv', index=False)
+**3. Ruin analysis.** From the drawdown distribution: probability of hitting
+10/20/30/40/50% drawdowns at your capital, plus the recommended capital that
+keeps P(ruin) under 5% (computed from the dollar-drawdown distribution, which is
+conservative).
+
+**4. Execution stress.** Four scenarios (optimistic → extreme) combining missed
+trades (0–10%) and per-trade friction. Friction is scaled to *your* strategy —
+basis points of median trade notional when prices/quantities are available,
+fraction of average |P&L| otherwise — so a $500-notional stock strategy isn't
+judged with futures-sized dollar slippage. Each scenario runs across 2,000 seeds;
+the verdict uses medians, not a single lucky draw.
+
+**5. Composite verdict.** Sample size, bootstrap loss probability, profit-factor
+degradation under friction, ruin risk, and ordering luck combine into one
+classification with human-readable flags. The scoring is transparent — every
+flag states the number that triggered it.
+
+**Honest-stats notes:** Sharpe is annualized by your actual trade frequency
+(√trades-per-year), not a blanket √252. CAGR comes from the real date span.
+Profit factor is capped at 999 to keep all-winner samples finite.
+
+---
+
+## Research Grid Engine (advanced CLI)
+
+Beyond the Stress Lab, the repo contains a research-grade grid engine that sweeps
+the full perturbation surface (skip × slippage × delay × shuffle × bootstrap —
+up to 6,048 cells × 200K permutations) with crash-safe resume. The rest of this
+document covers that engine.
+
+```powershell
+python scripts/run_simulation.py --trades your_trades.csv --mode explore --jobs 8
+python scripts/run_simulation.py --trades your_trades.csv --status mc_run_YYYYMMDD_HHMMSS
 ```
 
 ---

@@ -21,7 +21,12 @@ def main():
     )
     
     subparsers = parser.add_subparsers(dest='command', help='Available commands')
-    
+
+    # Serve command (web UI)
+    serve_parser = subparsers.add_parser('serve', help='Launch the web UI (Strategy Stress Lab)')
+    serve_parser.add_argument('--port', type=int, default=8742, help='Port (default: 8742)')
+    serve_parser.add_argument('--no-browser', action='store_true', help="Don't open a browser")
+
     # Analyze command
     analyze_parser = subparsers.add_parser('analyze', help='Full Monte Carlo analysis')
     analyze_parser.add_argument('trades', type=str, help='Path to trades CSV file')
@@ -43,7 +48,17 @@ def main():
     if not args.command:
         parser.print_help()
         sys.exit(1)
-    
+
+    if args.command == 'serve':
+        import threading, webbrowser
+        from .webapp import create_app
+        url = f"http://127.0.0.1:{args.port}"
+        if not args.no_browser:
+            threading.Timer(0.8, lambda: webbrowser.open(url)).start()
+        print(f"Strategy Stress Lab running at {url}  (Ctrl+C to quit)")
+        create_app().run(host="127.0.0.1", port=args.port, debug=False, use_reloader=False)
+        return
+
     # Import here to avoid circular imports
     from .io import load_trade_list
     from .analysis.bootstrap_equity import bootstrap_equity_curves, format_bootstrap_summary

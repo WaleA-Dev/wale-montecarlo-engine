@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Strategy Stress Lab</title>
+<link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+<link rel="icon" href="data:image/svg+xml,&lt;svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'&gt;&lt;text y='.9em' font-size='90'&gt;&#127922;&lt;/text&gt;&lt;/svg&gt;">
+</head>
+<body>
+
+<header class="topbar">
+  <div class="brand">
+    <span class="brand-mark">MC</span>
+    <span class="brand-name">Strategy Stress Lab</span>
+    <span class="brand-sub">monte carlo engine</span>
+  </div>
+  <div class="topbar-actions">
+    <button id="btn-export" class="btn ghost" hidden>Download report</button>
+    <button id="btn-new" class="btn ghost" hidden>New analysis</button>
+  </div>
+</header>
+
+<!-- ============================ SETUP ============================ -->
+<main id="setup" class="setup">
+  <section class="drop-wrap">
+    <div id="dropzone" class="dropzone" tabindex="0" role="button"
+         aria-label="Drop a trade list CSV or click to browse">
+      <div class="dz-glyph" aria-hidden="true">
+        <svg width="46" height="46" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+             stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+          <polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
+        </svg>
+      </div>
+      <h1>Drop your trade list</h1>
+      <p class="dz-sub">TradingView &ldquo;List of trades&rdquo; export, broker CSV,
+        or any file with a P&amp;L column. Click to browse.</p>
+      <p id="dz-file" class="dz-file" hidden></p>
+      <input id="file-input" type="file" accept=".csv,.txt" hidden>
+    </div>
+
+    <form id="settings" class="settings" autocomplete="off">
+      <div class="field">
+        <label for="capital">Starting capital ($)</label>
+        <input id="capital" name="capital" type="number" value="100000" min="1" step="1000">
+      </div>
+      <div class="field">
+        <label for="samples">Simulations</label>
+        <select id="samples" name="samples">
+          <option value="2000">2,000 &middot; fast</option>
+          <option value="10000" selected>10,000 &middot; standard</option>
+          <option value="50000">50,000 &middot; deep</option>
+        </select>
+      </div>
+      <div class="field">
+        <label for="ruin">Ruin drawdown (%)</label>
+        <input id="ruin" name="ruin_threshold" type="number" value="50" min="5" max="95" step="5">
+      </div>
+      <button id="btn-run" class="btn primary" type="submit" disabled>Run stress test</button>
+    </form>
+
+    <p class="setup-foot">
+      Everything runs locally on this machine &mdash; your trades never leave it.
+      <button id="btn-sample" class="linklike" type="button">Try the sample strategy</button>
+    </p>
+  </section>
+</main>
+
+<!-- =========================== PROGRESS =========================== -->
+<main id="progress" class="progress" hidden>
+  <div class="prog-card">
+    <div class="prog-log" id="prog-log"></div>
+    <div class="prog-track"><div class="prog-fill" id="prog-fill"></div></div>
+  </div>
+</main>
+
+<!-- ============================ RESULTS ============================ -->
+<main id="results" class="results" hidden></main>
+
+<div id="toast" class="toast" role="alert" hidden></div>
+
+<script src="{{ url_for('static', filename='chart.umd.js') }}"></script>
+<script src="{{ url_for('static', filename='app.js') }}"></script>
+</body>
+</html>

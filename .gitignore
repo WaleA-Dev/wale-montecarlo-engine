@@ -56,3 +56,6 @@ trade_list.csv
 **/secrets/
 *.key
 .databento*
+
+# Generated reports
+*_report.html
