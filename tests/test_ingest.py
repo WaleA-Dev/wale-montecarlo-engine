@@ -84,6 +84,18 @@ class TestTradingView:
         assert any("open" in w.lower() or "incomplete" in w.lower()
                    for w in d.warnings)
 
+    def test_open_signal_exit_row_excluded(self):
+        # TV exports still-open positions as an Exit row with Signal=Open and
+        # UNREALIZED P&L - must not be counted as a completed trade
+        open_pair = (
+            "3,Exit long,2023-03-05 09:30,Open,60.0,10,600.0,110129.91,5.0,1,1,-2,-2,99.0,9\n"
+            "3,Entry long,2023-03-01 09:30,Long,50.0,10,500.0,110129.91,5.0,1,1,-2,-2,99.0,9\n"
+        )
+        d = load_trades_text(TV_CSV + open_pair)
+        assert len(d) == 2
+        assert 110129.91 not in d.pnls
+        assert any("unrealized" in w.lower() for w in d.warnings)
+
 
 class TestGeneric:
     def test_finds_pnl_column(self):

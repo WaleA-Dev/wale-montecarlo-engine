@@ -212,6 +212,7 @@ def _parse_tradingview(rows: List[Dict[str, str]], headers: List[str]) -> TradeD
 
     data = TradeData([], [], [], [], [], [], [], [], source_format="tradingview")
     skipped_open = 0
+    open_unrealized = 0.0
     for tid in order:
         g = groups[tid]
         entry, exit_ = g.get("entry"), g.get("exit")
@@ -220,10 +221,14 @@ def _parse_tradingview(rows: List[Dict[str, str]], headers: List[str]) -> TradeD
             continue
         pnl = parse_num(exit_.get(col_pnl)) or parse_num(entry.get(col_pnl))
         exit_sig = ((exit_.get(col_signal) or "") if col_signal else "").strip().lower()
+        if exit_sig == "open":
+            # Still-open position: TradingView exports it as an "Exit" row
+            # marked Signal=Open with UNREALIZED mark-to-market P&L.
+            # Counting it as a completed trade would corrupt every statistic.
+            skipped_open += 1
+            open_unrealized += pnl or 0.0
+            continue
         if pnl is None:
-            if exit_sig == "open":
-                skipped_open += 1
-                continue
             data.warnings.append(f"Trade {tid}: missing P&L, skipped.")
             continue
         typ = (entry.get(col_type) or "").lower()
@@ -241,7 +246,10 @@ def _parse_tradingview(rows: List[Dict[str, str]], headers: List[str]) -> TradeD
         data.notionals.append(eprice * qty if (eprice and qty) else None)
 
     if skipped_open:
-        data.warnings.append(f"{skipped_open} open/incomplete trade(s) excluded.")
+        note = (f" (unrealized P&L ${open_unrealized:,.2f} not counted)"
+                if open_unrealized else "")
+        data.warnings.append(
+            f"{skipped_open} open/incomplete trade(s) excluded{note}.")
     if not data.pnls:
         raise IngestError("TradingView file recognized but no completed trades found.")
     _sort_by_exit(data)

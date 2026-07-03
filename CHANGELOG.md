@@ -23,7 +23,19 @@
 - `python -m wale_montecarlo serve` CLI command.
 - 35 new tests (ingestion + vectorized engine): 117 total.
 
+### Validated
+- `scripts/independent_validation.py`: zero-dependency audit (pure stdlib, no
+  numpy, no shared code) that drives the live app over HTTP and checks it
+  against (a) TradingView's own Cumulative P&L column, (b) exact brute-force
+  enumeration of all 6^6 bootstrap draws and all 7! orderings, (c) closed-form
+  expectations with 4-sigma bands, (d) determinism and cross-seed convergence.
+  23/23 checks pass against the shipped exe.
+
 ### Fixed
+- Open positions in TradingView exports (Exit rows with Signal=Open carrying
+  unrealized mark-to-market P&L) are now excluded with an explicit warning --
+  previously a still-open trade could dominate every statistic (caught by the
+  independent audit: one open SCHD trade carried $110k unrealized).
 - Stress friction now scales to the strategy (bps of median trade notional, or
   fraction of avg |P&L|) instead of fixed futures-sized dollar slippage that
   misjudged small-notional strategies.
