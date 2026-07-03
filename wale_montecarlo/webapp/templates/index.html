@@ -43,7 +43,9 @@
     <form id="settings" class="settings" autocomplete="off">
       <div class="field">
         <label for="capital">Starting capital ($)</label>
-        <input id="capital" name="capital" type="number" value="100000" min="1" step="1000">
+        <input id="capital" name="capital" type="number" value="100000"
+               min="1" max="1000000000000" step="any"
+               title="1 to 1,000,000,000,000">
       </div>
       <div class="field">
         <label for="samples">Simulations</label>
