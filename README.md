@@ -202,9 +202,9 @@ That's why we focus on metrics like:
 ┌─────────────────────────────────────────────────────────────────┐
 │                        INPUT DATA                               │
 ├─────────────────────────────────────────────────────────────────┤
-│  trade_list.csv      │  equity_curve.csv   │  OHLC data (opt)   │
-│  - entry/exit times  │  - bar-by-bar equity│  - for delay model │
-│  - prices, PnL       │  - timestamps       │  - databento, etc  │
+│  trade list CSV (--trades)                 │  OHLC data (opt)   │
+│  - entry/exit times                        │  - for delay model │
+│  - prices, PnL, side, quantity             │  - databento, etc  │
 └─────────────────────────────────────────────────────────────────┘
                               │
                               ▼
@@ -291,13 +291,12 @@ Without OHLC data, the engine estimates delay impact using a statistical model. 
    ```
 
 3. **Fetch OHLC data:**
-   ```powershell
-   cd C:\Users\wale\wale-montecarlo-engine
+   ```bash
    python scripts/fetch_ohlc.py --symbol NQ --start 2023-01-01 --end 2026-01-29
    ```
 
-4. **Run your simulation** (it will automatically use ohlc.csv if present):
-   ```powershell
+4. **Run your simulation** (it automatically uses `ohlc.csv` if present next to your trade list):
+   ```bash
    python scripts/run_simulation.py --trades trade_list.csv --n_per_cell 1000
    ```
 
@@ -426,16 +425,15 @@ With `delay` fixed to 1 (the recommended default), this reduces to ~1,500 cells.
 
 ### Cell Identification
 
-Each cell gets a unique ID based on its parameter indices:
+Each cell gets a human-readable ID built from its parameter values:
+
 ```
-cell_3_2_0_1_1 = {
-    p_skip_idx: 3 → p_skip=0.03
-    slip_idx: 2 → slip=50
-    delay_idx: 0 → delay=0
-    shuffle_idx: 1 → shuffle="permute"
-    bootstrap_idx: 1 → bootstrap="trade_bootstrap"
-}
+skip0.03_slip50_delay0_shufpermute_boottrade_bootstrap_blk10
+  → p_skip=0.03, slip=$50, delay=0 bars,
+    shuffle="permute", bootstrap="trade_bootstrap", block_len=10
 ```
+
+The per-cell output directory is `per_cell/cell_<id>/`.
 
 ### Permutations Per Cell
 
@@ -481,8 +479,8 @@ On every resume:
 ### Seeding Scheme
 
 ```
-cell_seed_base = (global_seed + sha256(cell_id)[:8] % seed_stride) mod 2^32
-perm_seed = (cell_seed_base + perm_index × 1000003) mod 2^32
+cell_seed = int(sha256(cell_id)[:8], 16)
+perm_seed = (cell_seed + perm_index × 1000003) mod 2^32
 ```
 
 This ensures:
@@ -529,69 +527,68 @@ Clusters cells with similar robust scores to identify **stable parameter regions
 ## File Structure
 
 ```
-backtest/out/montecarlo/mc_surface_full_200k_<timestamp>/
+montecarlo_output/mc_run_<timestamp>/
 │
 ├── aggregated/
 │   ├── run_manifest.json      # Complete run configuration
 │   │   {
-│   │     "run_name": "mc_surface_full_200k_20260115",
-│   │     "total_cells": 1512,
-│   │     "n_per_cell_target": 200000,
-│   │     "global_seed": 1337,
+│   │     "run_name": "mc_run_20260701_164335",
+│   │     "created": "...",
+│   │     "config": {"input_dir": "...", "trades_path": "...", "n_per_cell": 200000, ...},
+│   │     "baseline": {"profit_factor": 2.30, "total_return_pct": 4.21, ...},
 │   │     "seed_scheme": "...",
 │   │     "resume_scheme": "...",
-│   │     ...
+│   │     "grid": {"total_cells": 6048, ...}
 │   │   }
 │   │
 │   ├── progress.csv           # Status of all cells
-│   │   cell_id, status, n_done, n_target, pct_done, ...
+│   │   cell_id, status, perms_completed, perms_target, pct, ...
 │   │
-│   ├── grid_summary.csv       # Summary stats for complete cells
-│   │   cell_id, pf_p50, maxdd_p95, ret_p50, robust_score, ...
+│   ├── grid_summary.csv       # Summary stats for all completed cells
+│   │   cell_id, pf_p05, pf_p50, pf_p95, ret_p50, maxdd_p95,
+│   │   pvalue_raw, pvalue_corrected, robust_score, ...
 │   │
-│   ├── heartbeat.json         # Updated every 30 seconds
+│   ├── heartbeat.json         # Updated every 30 seconds (and at completion)
 │   │   {
-│   │     "timestamp": "2026-01-15T14:30:00",
-│   │     "cells_complete": 847,
-│   │     "cells_total": 1512,
-│   │     "sims_done_total_estimate": 169400000
+│   │     "run_name": "mc_run_20260701_164335",
+│   │     "timestamp": "2026-07-01T16:43:35",
+│   │     "cells_completed": 847,
+│   │     "cells_total": 6048,
+│   │     "perms_completed": 169400000,
+│   │     "perms_total": 1209600000,
+│   │     "pct_complete": 14.0
 │   │   }
 │   │
 │   ├── DONE.txt               # Sentinel file (written when complete)
 │   │
-│   └── analysis/              # Created by analysis script
-│       ├── SURFACE_FULL_200K_DECISION_REPORT.md
+│   └── analysis/              # Created by scripts/analyze_run.py
+│       ├── SURFACE_FULL_DECISION_REPORT.md
 │       └── tables/
 │           ├── top_50_by_robust_score.csv
 │           ├── pareto_front_pf_vs_maxdd.csv
 │           ├── pareto_front_multidim.csv
-│           └── plateau_clusters.csv
+│           ├── plateau_clusters.csv
+│           └── all_cells.csv           (with --export_csv)
 │
 └── per_cell/
     └── cell_<id>/
         ├── metrics_compact.csv   # THE SOURCE OF TRUTH
-        │   perm_index, total_return_pct, max_drawdown_pct, profit_factor, ...
-        │   (exactly 200,000 rows when complete)
+        │   perm_index, seed, n_trades_executed, total_return_pct,
+        │   max_drawdown_pct, profit_factor, worst_month_pct, ...
+        │   (exactly n_per_cell rows when complete)
         │
         ├── progress.json         # Advisory progress (not authoritative)
-        │   {
-        │     "n_done": 200000,
-        │     "n_target": 200000,
-        │     "runtime_seconds": 1847.3,
-        │     ...
-        │   }
         │
         ├── summary.json          # Final statistics
         │   {
-        │     "quantiles": {"profit_factor": {"p05": 1.2, "p50": 2.8, "p95": 7.1}},
-        │     "p_value": {"raw": 0.023, "corrected": 0.34},
-        │     "robust_score": {"value": 1.84},
-        │     ...
+        │     "profit_factor": {"p05": 1.2, "p50": 2.8, "p95": 7.1, ...},
+        │     "total_return": {...}, "max_drawdown": {...}, "worst_month": {...},
+        │     "pvalue_raw": 0.023,
+        │     "pvalue_corrected": 0.34,
+        │     "robust_score": 1.84
         │   }
         │
-        └── logs.txt              # Human-readable log
-            [2026-01-15T14:00:00] START: cell=3_2_0_1_1 target=200000
-            [2026-01-15T14:30:47] COMPLETE: n_done=200000
+        └── logs.txt              # Human-readable log for this cell
 ```
 
 ---
@@ -600,45 +597,61 @@ backtest/out/montecarlo/mc_surface_full_200k_<timestamp>/
 
 ### Simulation Runner
 
-```powershell
+```bash
 python scripts/run_simulation.py [OPTIONS]
 
-Required:
-  --trades PATH         Path to trade list CSV (must have entry_time, exit_time, pnl columns)
+Required (new runs):
+  --trades PATH         Path to trade list CSV (any filename; must have
+                        entry_time, exit_time, pnl columns)
 
 Optional:
-  --n_per_cell INT      Permutations per cell (default: 1000)
-  --jobs INT            Parallel workers (default: 8)
-  --output_dir PATH     Custom output directory
-  
-Resume/Status:
-  --resume RUN_NAME     Resume an interrupted run
+  --mode MODE           Grid preset: explore (128 cells, 20K perms),
+                        focus (64 cells, 100K perms), full (6048 cells, 200K perms)
+  --n_per_cell INT      Permutations per cell (overrides the mode preset; default 1000)
+  --jobs INT            Parallel workers (default: 4)
+  --output_dir PATH     Custom output base directory (default: ./montecarlo_output)
+  --fixed_delay INT     Fix the delay dimension to one value (shrinks the grid)
+
+Resume/Status (no --trades needed):
+  --resume RUN_NAME     Resume an interrupted run (config restored from manifest)
   --status RUN_NAME     Check progress of existing run
-  
+
 Preview:
   --dry_run             Show config and grid size without running
 ```
 
 ### Example Commands
 
-```powershell
-# Start a new run with 100k permutations per cell
+```bash
+# Start a new run with 100k permutations per cell on the full grid
 python scripts/run_simulation.py --trades trade_list.csv --n_per_cell 100000 --jobs 8
 
 # Check status
-python scripts/run_simulation.py --trades trade_list.csv --status mc_run_20260129_012613
+python scripts/run_simulation.py --status mc_run_20260129_012613
 
 # Resume interrupted run
-python scripts/run_simulation.py --trades trade_list.csv --resume mc_run_20260129_012613
+python scripts/run_simulation.py --resume mc_run_20260129_012613
 
 # Dry run to see grid dimensions
-python scripts/run_simulation.py --trades trade_list.csv --dry_run
+python scripts/run_simulation.py --trades trade_list.csv --mode explore --dry_run
 ```
 
 ### Analysis Script
 
-```powershell
-python scripts/CURSOR_surface_full_200k_analysis.py --run_dir montecarlo_output/<run_name>
+```bash
+python scripts/analyze_run.py --run_dir montecarlo_output/<run_name> [--export_csv] [--top_n 50]
+```
+
+Outputs go to `<run_dir>/aggregated/analysis/` (decision report + ranking tables).
+
+### Surface Runner (repo-style layout)
+
+`scripts/run_surface.py` is an alternative entry point that expects a directory
+containing `trade_list.csv` (the "repo" layout) and defaults to `delay=1`,
+producing a 1,512-cell grid:
+
+```bash
+python scripts/run_surface.py --repo path/to/export --n_per_cell 200000 --jobs 8
 ```
 
 
@@ -659,7 +672,7 @@ You can reduce this by:
 
 ### Q: Can I stop and resume?
 
-**A:** Yes. Hit Ctrl+C anytime. Progress is saved per-cell. Run the same command with `--run_name <existing_name>` to resume.
+**A:** Yes. Hit Ctrl+C anytime. Progress is saved per-cell. Resume with `python scripts/run_simulation.py --resume <run_name>` - the trades path and grid are restored from the run manifest.
 
 ### Q: What if I see duplicates in my old runs?
 
@@ -675,12 +688,12 @@ You can reduce this by:
 ### Q: What input data do I need?
 
 **A:** Minimum:
-- `trade_list.csv`: Entry/exit times, prices, PnL
-- `equity_curve.csv`: Bar-by-bar equity
+- A trade list CSV: entry/exit times, prices, PnL (see [Trade List Format](#trade-list-format))
 
-Recommended:
-- `jan_2_data_to_now.csv`: OHLC data for realistic delay modeling
-- `step1_report.txt`: Baseline metrics for p-value calculation
+Optional:
+- `ohlc.csv` or `price_data.csv` next to your trade list: OHLC data for realistic delay modeling (see [Databento Integration](#databento-integration-ohlc-data))
+
+Baseline metrics for p-values are computed automatically from your unperturbed trade list and stored in `run_manifest.json`.
 
 ### Q: Why 200,000 permutations?
 

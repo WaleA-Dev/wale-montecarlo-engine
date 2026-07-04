@@ -74,6 +74,7 @@ class MonteCarloRunner:
         self.cell_progress: Dict[str, CellProgress] = {}
         self.run_progress: Optional[RunProgress] = None
         self.paths: Dict[str, str] = {}
+        self.baseline: Dict[str, float] = {}
 
         # Set up signal handlers
         signal.signal(signal.SIGINT, _signal_handler)
@@ -87,20 +88,24 @@ class MonteCarloRunner:
             True if setup successful
         """
         try:
-            # Load trade list
-            trade_list_path = os.path.join(self.config.input_dir, "trade_list.csv")
+            # Load trade list: explicit path wins, otherwise <input_dir>/trade_list.csv
+            trade_list_path = self.config.trades_path or os.path.join(
+                self.config.input_dir, "trade_list.csv"
+            )
             if not os.path.exists(trade_list_path):
                 logger.error(f"Trade list not found: {trade_list_path}")
                 return False
 
             self.trades = load_trade_list(trade_list_path)
-            logger.info(f"Loaded {len(self.trades)} trades")
+            logger.info(f"Loaded {len(self.trades)} trades from {trade_list_path}")
 
-            # Load OHLC data if available
+            # Load OHLC data if available (checked next to the trade list too)
+            search_dirs = [self.config.input_dir, os.path.dirname(trade_list_path)]
+            ohlc_names = ["ohlc.csv", "price_data.csv", "jan_2_data_to_now.csv"]
             ohlc_paths = [
-                os.path.join(self.config.input_dir, "jan_2_data_to_now.csv"),
-                os.path.join(self.config.input_dir, "ohlc.csv"),
-                os.path.join(self.config.input_dir, "price_data.csv"),
+                os.path.join(d, name)
+                for d in dict.fromkeys(search_dirs)
+                for name in ohlc_names
             ]
             for ohlc_path in ohlc_paths:
                 if os.path.exists(ohlc_path):
@@ -117,12 +122,20 @@ class MonteCarloRunner:
 
             logger.info(f"Generated grid: {len(self.cells)} cells")
 
+            # Baseline metrics from the unperturbed trades (used for p-values)
+            from .metrics import compute_baseline_metrics
+            self.baseline = compute_baseline_metrics(self.trades)
+            logger.info(f"Baseline PF: {self.baseline['profit_factor']:.4f}")
+
             # Create output structure
             self.paths = ensure_output_structure(self.config.output_dir)
 
             # Save manifest
             manifest_path = os.path.join(self.paths["aggregated"], "run_manifest.json")
-            save_run_manifest(manifest_path, self.config, self.cells)
+            save_run_manifest(
+                manifest_path, self.config, self.cells,
+                trades_path=trade_list_path, baseline=self.baseline,
+            )
 
             # Initialize progress tracking
             self._init_progress()
@@ -201,6 +214,9 @@ class MonteCarloRunner:
         n_jobs = min(self.config.n_jobs, len(cells_to_run))
         logger.info(f"Starting {n_jobs} parallel workers")
 
+        baseline_pf = self.baseline.get("profit_factor", 1.0)
+        n_cells_total = len(self.cells)
+
         try:
             with ProcessPoolExecutor(max_workers=n_jobs) as executor:
                 # Submit all cells
@@ -216,7 +232,9 @@ class MonteCarloRunner:
                         self.config.n_per_cell,
                         self.config.output_dir,
                         self.ohlc_data,
-                        resume
+                        resume,
+                        baseline_pf,
+                        n_cells_total,
                     )
                     futures[future] = cell
 
@@ -290,8 +308,22 @@ class MonteCarloRunner:
 
     def _finalize(self) -> None:
         """Finalize the run."""
-        # Final progress update
+        # Final progress update and heartbeat
         self._update_progress()
+        try:
+            self.run_progress.last_heartbeat = datetime.now()
+            heartbeat_path = os.path.join(self.paths["aggregated"], "heartbeat.json")
+            save_heartbeat(heartbeat_path, self.run_progress)
+        except Exception as e:
+            logger.debug(f"Final heartbeat error: {e}")
+
+        # Aggregate per-cell summaries into grid_summary.csv
+        try:
+            grid_summary_path = os.path.join(self.paths["aggregated"], "grid_summary.csv")
+            n_rows = write_grid_summary(self.config.output_dir, grid_summary_path)
+            logger.info(f"Wrote grid_summary.csv ({n_rows} cells)")
+        except Exception as e:
+            logger.warning(f"Could not write grid_summary.csv: {e}")
 
         # Check if complete
         all_complete = all(
@@ -327,7 +359,9 @@ def _run_cell_wrapper(
     n_perms: int,
     output_dir: str,
     ohlc_data: Optional[OHLCData],
-    resume: bool
+    resume: bool,
+    baseline_pf: float = 1.0,
+    n_cells_total: int = 1,
 ) -> Tuple[bool, int]:
     """
     Wrapper for running a cell in a subprocess.
@@ -342,12 +376,73 @@ def _run_cell_wrapper(
             n_perms,
             output_dir,
             ohlc_data,
-            resume=resume
+            resume=resume,
+            baseline_pf=baseline_pf,
+            n_cells_total=n_cells_total,
         )
         return True, len(results)
     except Exception as e:
         logger.error(f"Cell {cell.to_cell_id()} failed: {e}")
         return False, 0
+
+
+def write_grid_summary(output_dir: str, grid_summary_path: str) -> int:
+    """
+    Aggregate all per-cell summary.json files into aggregated/grid_summary.csv.
+
+    Returns:
+        Number of cells written.
+    """
+    import csv as _csv
+
+    per_cell_dir = os.path.join(output_dir, "per_cell")
+    rows = []
+    if os.path.isdir(per_cell_dir):
+        for cell_name in sorted(os.listdir(per_cell_dir)):
+            summary_path = os.path.join(per_cell_dir, cell_name, "summary.json")
+            if not os.path.exists(summary_path):
+                continue
+            try:
+                with open(summary_path) as f:
+                    data = json.load(f)
+                cfg = data.get("config", {})
+                rows.append({
+                    "cell_id": data.get("cell_id", cell_name),
+                    "n_permutations": data.get("n_permutations", 0),
+                    "p_skip": cfg.get("p_skip"),
+                    "slip_dollars": cfg.get("slip_dollars"),
+                    "delay_bars_max": cfg.get("delay_bars_max"),
+                    "shuffle_mode": cfg.get("shuffle_mode"),
+                    "bootstrap_mode": cfg.get("bootstrap_mode"),
+                    "block_len": cfg.get("block_len"),
+                    "pf_p05": data.get("profit_factor", {}).get("p05"),
+                    "pf_p50": data.get("profit_factor", {}).get("p50"),
+                    "pf_p95": data.get("profit_factor", {}).get("p95"),
+                    "ret_p05": data.get("total_return", {}).get("p05"),
+                    "ret_p50": data.get("total_return", {}).get("p50"),
+                    "ret_p95": data.get("total_return", {}).get("p95"),
+                    "maxdd_p50": data.get("max_drawdown", {}).get("p50"),
+                    "maxdd_p95": data.get("max_drawdown", {}).get("p95"),
+                    "worst_month_p05": data.get("worst_month", {}).get("p05"),
+                    "pvalue_raw": data.get("pvalue_raw"),
+                    "pvalue_corrected": data.get("pvalue_corrected"),
+                    "robust_score": data.get("robust_score"),
+                })
+            except Exception:
+                continue
+
+    if not rows:
+        return 0
+
+    rows.sort(key=lambda r: (r.get("robust_score") or 0), reverse=True)
+    fieldnames = list(rows[0].keys())
+    tmp_path = grid_summary_path + ".tmp"
+    with open(tmp_path, "w", newline="", encoding="utf-8") as f:
+        writer = _csv.DictWriter(f, fieldnames=fieldnames)
+        writer.writeheader()
+        writer.writerows(rows)
+    os.replace(tmp_path, grid_summary_path)
+    return len(rows)
 
 
 def run_surface(config: RunConfig, resume: bool = True) -> Dict:

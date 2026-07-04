@@ -5,17 +5,17 @@ Monte Carlo Surface Analysis Script
 Analyze completed Monte Carlo run and generate decision report.
 
 Usage:
-    python CURSOR_surface_full_200k_analysis.py --run_dir "path/to/run"
+    python analyze_run.py --run_dir "path/to/run"
 
 Examples:
     # Analyze run and generate report
-    python CURSOR_surface_full_200k_analysis.py --run_dir "backtest/out/montecarlo/mc_surface_full_200k_20240115"
+    python analyze_run.py --run_dir "backtest/out/montecarlo/mc_surface_full_200k_20240115"
 
     # Generate tables only
-    python CURSOR_surface_full_200k_analysis.py --run_dir "." --tables_only
+    python analyze_run.py --run_dir "." --tables_only
 
     # Export top cells to CSV
-    python CURSOR_surface_full_200k_analysis.py --run_dir "." --export_csv
+    python analyze_run.py --run_dir "." --export_csv
 """
 
 import argparse

@@ -329,7 +329,13 @@ def load_cell_summary(path: str) -> Optional[CellSummary]:
         return json.load(f)
 
 
-def save_run_manifest(path: str, config: RunConfig, cells: List[CellConfig]) -> None:
+def save_run_manifest(
+    path: str,
+    config: RunConfig,
+    cells: List[CellConfig],
+    trades_path: Optional[str] = None,
+    baseline: Optional[Dict] = None,
+) -> None:
     """
     Save run configuration manifest.
 
@@ -337,17 +343,30 @@ def save_run_manifest(path: str, config: RunConfig, cells: List[CellConfig]) -> 
         path: Path to run_manifest.json
         config: RunConfig object
         cells: List of CellConfig objects
+        trades_path: Resolved path to the trade list used for this run
+        baseline: Baseline metrics of the unperturbed trades
     """
     manifest = {
         "run_name": os.path.basename(config.output_dir),
         "created": datetime.now().isoformat(),
         "config": {
             "input_dir": config.input_dir,
+            "trades_path": trades_path or config.trades_path,
             "n_per_cell": config.n_per_cell,
             "n_jobs": config.n_jobs,
             "fixed_delay": config.fixed_delay,
             "grid_filters": config.grid_filters,
         },
+        "baseline": baseline or {},
+        "seed_scheme": (
+            "cell_seed = int(sha256(cell_id)[:8], 16); "
+            "perm_seed = (cell_seed + perm_index * 1000003) mod 2^32"
+        ),
+        "resume_scheme": (
+            "metrics_compact.csv is the source of truth: dedupe by perm_index "
+            "(first occurrence wins), truncate rows >= n_per_cell, resume at "
+            "max(perm_index) + 1"
+        ),
         "grid": {
             "total_cells": len(cells),
             "p_skip_values": config.p_skip_values,

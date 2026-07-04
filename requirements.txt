@@ -5,6 +5,11 @@ pywebview>=5.0     # native desktop window (WebView2)
 
 # Research grid CLI extras (scripts/run_simulation.py)
 tqdm>=4.65.0
+pyyaml>=6.0
+scipy>=1.7.0
+
+# Tests
+pytest>=7.0.0
 
 # Packaging the desktop exe (build-time only)
 # pyinstaller>=6.0   ->  pyinstaller WaleMonteCarlo.spec

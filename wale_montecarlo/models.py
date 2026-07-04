@@ -374,6 +374,8 @@ class RunConfig:
     Attributes:
         input_dir: Path to backtest export directory
         output_dir: Path for Monte Carlo results
+        trades_path: Explicit path to the trade list CSV. When unset, the
+            runner falls back to <input_dir>/trade_list.csv.
         n_per_cell: Number of permutations per cell
         n_jobs: Number of parallel workers
         fixed_delay: If set, fix delay parameter to this value
@@ -381,6 +383,7 @@ class RunConfig:
     """
     input_dir: str
     output_dir: str
+    trades_path: Optional[str] = None
     n_per_cell: int = 200000
     n_jobs: int = 8
     fixed_delay: Optional[int] = None

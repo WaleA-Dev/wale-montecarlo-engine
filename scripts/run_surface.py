@@ -5,20 +5,20 @@ Monte Carlo Surface Analysis Runner
 Run a full Monte Carlo grid search over perturbation parameters.
 
 Usage:
-    python CURSOR_run_surface_full_200k.py --repo "path/to/backtest/export" --n_per_cell 200000 --jobs 8
+    python run_surface.py --repo "path/to/backtest/export" --n_per_cell 200000 --jobs 8
 
 Examples:
     # Full 200K run
-    python CURSOR_run_surface_full_200k.py --repo "." --n_per_cell 200000 --jobs 8
+    python run_surface.py --repo "." --n_per_cell 200000 --jobs 8
 
     # Quick test with 1000 permutations
-    python CURSOR_run_surface_full_200k.py --repo "." --n_per_cell 1000 --jobs 4
+    python run_surface.py --repo "." --n_per_cell 1000 --jobs 4
 
     # Check status of existing run
-    python CURSOR_run_surface_full_200k.py --repo "." --run_name mc_surface_full_200k_20240115 --status_only
+    python run_surface.py --repo "." --run_name mc_surface_full_200k_20240115 --status_only
 
     # Resume interrupted run
-    python CURSOR_run_surface_full_200k.py --repo "." --run_name mc_surface_full_200k_20240115 --resume
+    python run_surface.py --repo "." --run_name mc_surface_full_200k_20240115 --resume
 """
 
 import argparse
@@ -185,7 +185,8 @@ def main():
         print("Error: Setup failed")
         sys.exit(1)
 
-    success = runner.run(resume=args.resume)
+    # Always resume-safe: per-cell progress is deduped and reused
+    success = runner.run(resume=True)
 
     status = runner.get_status()
     print(f"\n=== Final Status ===")
