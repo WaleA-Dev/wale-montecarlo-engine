@@ -38,10 +38,16 @@ from .ingest import TradeData
 
 ProgressFn = Callable[[str, float], None]
 
-_CHUNK = 1000          # samples per vectorized chunk
 _MAX_CURVE_PTS = 400   # downsampled x-resolution for cone/spaghetti
 _N_SPAGHETTI = 40      # individual sample paths sent to the UI
 _PF_CAP = 999.0
+_CHUNK_BUDGET = 4_000_000  # max matrix elements per chunk (bounds memory)
+
+
+def _chunk_size(n_trades: int) -> int:
+    """Samples per vectorized chunk, scaled so chunk*n stays bounded.
+    Keeps peak memory in the low hundreds of MB even for 50k-trade lists."""
+    return max(50, min(1000, _CHUNK_BUDGET // max(n_trades, 1)))
 
 
 # --------------------------------------------------------------------------
@@ -200,9 +206,10 @@ def _bootstrap(pnls: np.ndarray, capital: float, n_samples: int,
     sharpe_dist = np.empty(n_samples)
     curve_cols = np.empty((n_samples, len(cols)))
 
+    chunk = _chunk_size(n)
     done = 0
     while done < n_samples:
-        m = min(_CHUNK, n_samples - done)
+        m = min(chunk, n_samples - done)
         idx = rng.integers(0, n, size=(m, n))
         sampled = pnls[idx]
         eq = capital + np.cumsum(sampled, axis=1)
@@ -252,9 +259,10 @@ def _shuffle_test(pnls: np.ndarray, capital: float, baseline_dd_pct: float,
                   progress: Optional[ProgressFn]) -> Dict:
     n = len(pnls)
     dd_rel = np.empty(n_samples)
+    chunk = _chunk_size(n)
     done = 0
     while done < n_samples:
-        m = min(_CHUNK, n_samples - done)
+        m = min(chunk, n_samples - done)
         block = np.tile(pnls, (m, 1))
         block = rng.permuted(block, axis=1)
         _, rel = _dd_stats_rows(block, capital)
@@ -307,17 +315,24 @@ def _stress(data: TradeData, capital: float, n_seeds: int,
            "median_notional": _r(med_notional, 2) if med_notional else None,
            "scenarios": []}
 
+    chunk = _chunk_size(n)
     for si, (name, desc, skip, bps, frac) in enumerate(_SCENARIOS):
         unit = bps if friction_mode == "bps_of_notional" else frac
         per_trade_friction = friction_base * unit   # mean friction $ per trade
 
-        keep = rng.random((n_seeds, n)) >= skip
-        slip = rng.uniform(0.0, 2.0, size=(n_seeds, n)) * per_trade_friction
-        adj = np.where(keep, pnls - slip, 0.0)
-
-        totals = adj.sum(axis=1)
-        pf = _pf_rows(adj)
-        _, dd_rel = _dd_stats_rows(adj, capital)
+        totals = np.empty(n_seeds)
+        pf = np.empty(n_seeds)
+        dd_rel = np.empty(n_seeds)
+        done = 0
+        while done < n_seeds:
+            m = min(chunk, n_seeds - done)
+            keep = rng.random((m, n)) >= skip
+            slip = rng.uniform(0.0, 2.0, size=(m, n)) * per_trade_friction
+            adj = np.where(keep, pnls - slip, 0.0)
+            totals[done:done + m] = adj.sum(axis=1)
+            pf[done:done + m] = _pf_rows(adj)
+            _, dd_rel[done:done + m] = _dd_stats_rows(adj, capital)
+            done += m
 
         out["scenarios"].append({
             "name": name,
@@ -341,7 +356,7 @@ def _stress(data: TradeData, capital: float, n_seeds: int,
 
 
 def _verdict(baseline: Dict, bootstrap: Dict, shuffle: Dict, stress: Dict,
-             n_trades: int) -> Dict:
+             n_trades: int, data_warnings: List[str]) -> Dict:
     flags: List[Dict] = []
     scen = {s["name"]: s for s in stress["scenarios"]}
     pf_opt = scen["optimistic"]["pf_med"] or 0.0
@@ -352,6 +367,11 @@ def _verdict(baseline: Dict, bootstrap: Dict, shuffle: Dict, stress: Dict,
     degradation_pess = (pf_opt - pf_pess) / pf_opt if pf_opt > 0 else 1.0
 
     score = 0  # higher is worse
+
+    # Data-quality warnings from ingestion belong in front of the user,
+    # not buried in fine print (e.g. excluded open trades).
+    for w in data_warnings:
+        flags.append({"level": "warn", "text": w})
 
     if n_trades < 30:
         flags.append({"level": "warn", "text":
@@ -400,7 +420,14 @@ def _verdict(baseline: Dict, bootstrap: Dict, shuffle: Dict, stress: Dict,
                       "even before stress testing."})
         score += 4
 
-    if score >= 6:
+    if n_trades < 10:
+        # A handful of trades cannot support any robustness claim. Refusing
+        # to grade is more honest than a green stamp with a footnote.
+        cls, emoji = "Insufficient Data", "?"
+        summary = (f"Only {n_trades} completed trades. No statistical method can "
+                   "separate skill from luck at this sample size. Collect more "
+                   "trades before drawing conclusions.")
+    elif score >= 6:
         cls, emoji = "Overfit / Not Tradable", "X"
         summary = ("This strategy's backtest performance is unlikely to survive real "
                    "trading conditions.")
@@ -408,10 +435,12 @@ def _verdict(baseline: Dict, bootstrap: Dict, shuffle: Dict, stress: Dict,
         cls, emoji = "Fragile", "!"
         summary = ("The edge exists but is highly sensitive to execution quality and "
                    "sequencing. Trade small, monitor closely.")
-    elif score >= 2:
+    elif score >= 2 or n_trades < 30:
         cls, emoji = "Moderate", "~"
         summary = ("Reasonable robustness with some caveats worth understanding "
-                   "before sizing up.")
+                   "before sizing up." if score >= 2 else
+                   "Numbers look healthy, but under 30 trades is a thin sample; "
+                   "the verdict is capped until more history exists.")
     else:
         cls, emoji = "Robust", "+"
         summary = ("The edge survives realistic execution stress and does not depend "
@@ -484,7 +513,7 @@ def run_full_analysis(
         progress("ruin", 1.0)
 
     stress = _stress(data, capital, n_stress_seeds, rng, progress)
-    verdict = _verdict(baseline, boot, shuffle, stress, len(data))
+    verdict = _verdict(baseline, boot, shuffle, stress, len(data), data.warnings)
 
     if progress:
         progress("done", 1.0)

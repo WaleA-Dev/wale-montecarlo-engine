@@ -1,16 +1,16 @@
-# Wale Monte Carlo — Strategy Stress Lab
+# Wale Monte Carlo - Strategy Stress Lab
 
 > Drop in a trade list. Get a verdict: does your strategy's edge survive reality?
 
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
 [![License: CC BY-NC-SA 4.0](https://img.shields.io/badge/License-CC%20BY--NC--SA%204.0-lightgrey.svg)](https://creativecommons.org/licenses/by-nc-sa/4.0/)
 
-If you run a systematic strategy, your backtest is one path through history — and
+If you run a systematic strategy, your backtest is one path through history - and
 usually a lucky one. This tool resamples, reorders, and degrades that path tens of
 thousands of times to answer the questions that actually matter:
 
 - **Is the edge real,** or an artifact of one lucky trade sequence?
-- **What drawdown should I actually expect** — not the one backtest path, but the distribution?
+- **What drawdown should I actually expect** - not the one backtest path, but the distribution?
 - **Does the edge survive execution friction** (missed trades, slippage) scaled to *your* trade size?
 - **How much capital do I need** so a normal losing streak doesn't ruin me?
 
@@ -20,21 +20,21 @@ Everything runs locally. Your trades never leave your machine.
 
 ## Quick Start
 
-### Option 1 — Desktop app (no Python required)
+### Option 1 - Desktop app (no Python required)
 
-Download `WaleMonteCarlo.exe` from [Releases](https://github.com/WaleA-Dev/wale-montecarlo-engine/releases),
-double-click it, and your browser opens the Strategy Stress Lab. Drag in a trade
-list CSV, set your capital, hit **Run stress test**. You get:
+Download `WaleMonteCarlo.exe` from [Releases](https://github.com/WaleA-Dev/wale-montecarlo-engine/releases)
+and double-click it. The app opens in its own window. Drag in a trade list CSV,
+set your capital, hit **Run stress test**. You get:
 
-- A **verdict plate**: Robust / Moderate / Fragile / Overfit, with the specific reasons as pass/fail flags
-- **Equity cone** — your backtest path against the 5th–95th percentile band of 10,000 resampled paths
+- A **verdict plate**: Robust, Moderate, Fragile, Overfit, or Insufficient Data, with the specific reasons as pass/fail flags
+- **Equity cone** - your backtest path against the 5th-95th percentile band of 10,000 resampled paths
 - **Final P&L distribution** and probability of ending at a loss
 - **Max-drawdown distribution** plus a *luck detector* (was your smooth equity curve just lucky ordering?)
-- **Ruin ladder** — probability of hitting 10/20/30/40/50% drawdowns at your capital
+- **Ruin ladder** - probability of hitting 10/20/30/40/50% drawdowns at your capital
 - **Execution stress scenarios** with friction scaled to your median trade notional
 - One-click **standalone HTML report** you can share or archive
 
-### Option 2 — From source
+### Option 2 - From source
 
 ```bash
 pip install -r requirements.txt
@@ -43,7 +43,7 @@ python app.py                      # desktop launcher (opens browser)
 python -m wale_montecarlo serve    # same UI, explicit port control
 ```
 
-### Option 3 — CLI report
+### Option 3 - CLI report
 
 ```bash
 python -m wale_montecarlo analyze trades.csv --capital 100000 --output report.html
@@ -59,18 +59,23 @@ pyinstaller WaleMonteCarlo.spec --noconfirm     # -> dist/WaleMonteCarlo.exe
 ### Run tests
 
 ```bash
-python -m pytest tests/ -q     # 117 tests
+python -m pytest tests/ -q                      # unit tests
+python scripts/independent_validation.py        # audits the running app
 ```
+
+Note for the exe: Windows SmartScreen may warn on first run because the binary
+is not code-signed. Click "More info", then "Run anyway". The app makes no
+network calls; everything stays on your machine.
 
 ---
 
 ## Supported Trade List Formats
 
-Format detection is automatic — drop the file in as-is:
+Format detection is automatic - drop the file in as-is:
 
 | Format | How it's recognized |
 |--------|--------------------|
-| **TradingView "List of trades" export** | Two rows per trade (`Entry long` / `Exit long`), `Net P&L USD` — the CSV you get from the Strategy Tester's export button |
+| **TradingView "List of trades" export** | Two rows per trade (`Entry long` / `Exit long`), `Net P&L USD` - the CSV you get from the Strategy Tester's export button |
 | **Native format** | Columns `entry_time, exit_time, entry_price, exit_price, pnl, side, quantity` |
 | **Generic broker export** | Any CSV with a recognizable P&L column (`pnl`, `profit`, `Profit/Loss`, `realized pnl`, …); dates optional |
 
@@ -83,14 +88,14 @@ you exactly which columns were found and what was expected.
 ## What the Analysis Does (and the statistics behind it)
 
 **1. Bootstrap resampling.** Trades are resampled with replacement 10,000 times
-(fixed position size, additive P&L). This produces distributions — not point
-estimates — for final P&L, profit factor, and max drawdown. If 30% of resamples
+(fixed position size, additive P&L). This produces distributions - not point
+estimates - for final P&L, profit factor, and max drawdown. If 30% of resamples
 lose money, your edge is fragile no matter how good the single backtest looked.
 
 **2. Shuffle test (luck detector).** Trades are permuted without replacement.
 Total P&L is invariant; only the *path* changes. If your original ordering's max
 drawdown sits in the bottom 10% of shuffled orderings, your smooth equity curve
-was partly lucky sequencing — expect the shuffled-median drawdown going forward.
+was partly lucky sequencing - expect the shuffled-median drawdown going forward.
 
 **3. Ruin analysis.** From the drawdown distribution: probability of hitting
 10/20/30/40/50% drawdowns at your capital, plus the recommended capital that
@@ -98,27 +103,55 @@ keeps P(ruin) under 5% (computed from the dollar-drawdown distribution, which is
 conservative).
 
 **4. Execution stress.** Four scenarios (optimistic → extreme) combining missed
-trades (0–10%) and per-trade friction. Friction is scaled to *your* strategy —
+trades (0-10%) and per-trade friction. Friction is scaled to *your* strategy -
 basis points of median trade notional when prices/quantities are available,
-fraction of average |P&L| otherwise — so a $500-notional stock strategy isn't
+fraction of average |P&L| otherwise - so a $500-notional stock strategy isn't
 judged with futures-sized dollar slippage. Each scenario runs across 2,000 seeds;
 the verdict uses medians, not a single lucky draw.
 
 **5. Composite verdict.** Sample size, bootstrap loss probability, profit-factor
 degradation under friction, ruin risk, and ordering luck combine into one
-classification with human-readable flags. The scoring is transparent — every
+classification with human-readable flags. The scoring is transparent - every
 flag states the number that triggered it.
 
 **Honest-stats notes:** Sharpe is annualized by your actual trade frequency
-(√trades-per-year), not a blanket √252. CAGR comes from the real date span.
-Profit factor is capped at 999 to keep all-winner samples finite.
+(sqrt of trades per year), not a blanket sqrt(252). CAGR comes from the real
+date span. Profit factor is capped at 999 to keep all-winner samples finite.
+
+---
+
+## Assumptions and Limitations
+
+Read this before trusting any output. Every tool in this category makes the
+same core assumptions, and most don't tell you.
+
+- **Trades are treated as independent draws.** Bootstrap resampling assumes
+  your trades are exchangeable. If your strategy's results depend heavily on
+  regime (2022 bear market trades vs 2024 trending trades), resampling mixes
+  those regimes and can understate clustering risk.
+- **Closed trades only.** Open positions in TradingView exports carry
+  unrealized P&L and are excluded, with a warning telling you how much was
+  left out. If most of your backtest profit sits in one open trade, the
+  verdict will reflect the closed trades, which is the honest read.
+- **Fixed position size.** P&L is resampled in dollars, matching a
+  fixed-quantity backtest. Compounding or volatility-scaled sizing is not
+  modeled.
+- **Fewer than 30 trades gets a capped verdict, fewer than 10 gets no verdict
+  at all.** No statistical method can separate skill from luck at that sample
+  size, so the tool refuses to pretend otherwise.
+- **Friction scenarios are estimates.** Slippage in basis points of notional
+  is a reasonable model for liquid instruments, but nothing replaces measured
+  live fills.
+
+The verdict is a screening tool. It can tell you a strategy is fragile. It
+cannot tell you a strategy is guaranteed to work.
 
 ---
 
 ## Research Grid Engine (advanced CLI)
 
 Beyond the Stress Lab, the repo contains a research-grade grid engine that sweeps
-the full perturbation surface (skip × slippage × delay × shuffle × bootstrap —
+the full perturbation surface (skip × slippage × delay × shuffle × bootstrap -
 up to 6,048 cells × 200K permutations) with crash-safe resume. The rest of this
 document covers that engine.
 

@@ -209,12 +209,12 @@ With w₁ = w₂ = 0.5:
 
 | PF_P50 | p-value | Score | Problem |
 |--------|---------|-------|---------|
-| 3.0 | 0.01 | 2.00 | — |
-| 3.0 | 0.50 | 1.75 | — |
+| 3.0 | 0.01 | 2.00 | - |
+| 3.0 | 0.50 | 1.75 | - |
 | 1.0 | 0.01 | 1.00 | Breakeven scores same as PF=2.0, p=0.50 |
 | 0.5 | 0.01 | 0.75 | **Losing strategy scores > 0** |
 
-**Fatal flaw:** Losing strategies (PF < 1.0) can achieve positive scores if p-value is low enough. This is nonsensical—statistical significance of a losing strategy is not valuable.
+**Fatal flaw:** Losing strategies (PF < 1.0) can achieve positive scores if p-value is low enough. This is nonsensical-statistical significance of a losing strategy is not valuable.
 
 #### Option 3: Gated Multiplicative (Recommended)
 
@@ -229,8 +229,8 @@ This subtracts 1.0 from PF before multiplying, so only the **excess return** is 
 | 3.0 | 0.01 | 1.98 | Strong edge, highly significant |
 | 3.0 | 0.50 | 1.00 | Strong edge, not significant |
 | 1.5 | 0.01 | 0.50 | Moderate edge, highly significant |
-| 1.0 | 0.01 | 0.00 | No edge—score is zero regardless of significance |
-| 0.8 | 0.01 | 0.00 | Losing—score is zero |
+| 1.0 | 0.01 | 0.00 | No edge-score is zero regardless of significance |
+| 0.8 | 0.01 | 0.00 | Losing-score is zero |
 
 **Properties:**
 - Breakeven (PF=1.0) always scores zero
@@ -271,8 +271,8 @@ Score = √(PF_P50 × (1 - p_value))
 
 | PF_P50 | p-value | Score | Interpretation |
 |--------|---------|-------|----------------|
-| 3.0 | 0.01 | 1.72 | — |
-| 3.0 | 0.50 | 1.22 | — |
+| 3.0 | 0.01 | 1.72 | - |
+| 3.0 | 0.50 | 1.22 | - |
 | 1.0 | 0.01 | 1.00 | Breakeven scores 1.0 |
 | 0.5 | 0.01 | 0.70 | **Losing strategy scores > 0** |
 
@@ -286,8 +286,8 @@ def robust_score_v3(pf_p50, p_value_corrected, maxdd_p95):
     Final recommended scoring function.
     
     Components:
-    1. Excess return: (PF - 1.0) — only profit above breakeven counts
-    2. Significance: (1 - p_value) — statistical confidence
+    1. Excess return: (PF - 1.0) - only profit above breakeven counts
+    2. Significance: (1 - p_value) - statistical confidence
     3. Drawdown penalty: penalize high tail risk
     
     Properties:
@@ -321,7 +321,7 @@ def robust_score_v3(pf_p50, p_value_corrected, maxdd_p95):
 
 ### Why Gated Multiplicative Is Correct
 
-The fundamental insight is that **profit factor is a ratio, not a difference**. A PF of 1.0 means "break even"—there is no edge. Statistical significance of "no edge" is meaningless.
+The fundamental insight is that **profit factor is a ratio, not a difference**. A PF of 1.0 means "break even"-there is no edge. Statistical significance of "no edge" is meaningless.
 
 By subtracting 1.0 before multiplying:
 - We measure **edge magnitude** (excess return over breakeven)
@@ -339,7 +339,7 @@ This produces a score that answers: **"How much confident, risk-adjusted edge do
 | P50 | Median outcome | "What typically happens"; robust to outliers |
 | P95 | Best 5% of outcomes | Too optimistic; chasing upside |
 
-**P50 is the "honest expectation"** — if you ran this strategy many times, P50 is roughly what you'd typically see.
+**P50 is the "honest expectation"** - if you ran this strategy many times, P50 is roughly what you'd typically see.
 
 For risk management, P05 (tail risk) should also be examined, but for ranking parameter combinations, P50 is the correct central tendency measure.
 
@@ -720,7 +720,7 @@ A strategy is overfit when its backtest performance is primarily explained by:
 - Unrealistic execution assumptions
 - Insufficient out-of-sample validation
 
-The perturbation models are not arbitrary stress tests—they are **systematic probes for overfitting**.
+The perturbation models are not arbitrary stress tests-they are **systematic probes for overfitting**.
 
 ### How Each Perturbation Detects Overfitting
 
@@ -748,7 +748,7 @@ If Overfit Score > 0.75 → Strategy is almost certainly overfit
 | Metric | Baseline | p_skip=0.05 | slip=$100 | delay=1 bar | Combined |
 |--------|----------|-------------|-----------|-------------|----------|
 | Profit Factor | 3.2 | 2.9 | 2.1 | 1.8 | 1.3 |
-| Overfit Score | — | 9% | 34% | 44% | **59%** |
+| Overfit Score | - | 9% | 34% | 44% | **59%** |
 
 This strategy loses 59% of its edge under realistic adverse conditions. That's a red flag.
 
@@ -805,7 +805,7 @@ def apply_delay_with_ohlc(trade, delay_bars, ohlc_data):
     return trade
 ```
 
-**If OHLC data is missing for a trade's time range, the simulation fails with an error.** There is no fallback. This is intentional—delay impact without real prices is guesswork.
+**If OHLC data is missing for a trade's time range, the simulation fails with an error.** There is no fallback. This is intentional-delay impact without real prices is guesswork.
 
 ### Quantifying Overfitting: The Degradation Surface
 

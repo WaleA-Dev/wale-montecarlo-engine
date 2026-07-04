@@ -17,7 +17,7 @@ import threading
 import time
 import urllib.request
 
-APP_TITLE = "Wale Monte Carlo — Strategy Stress Lab"
+APP_TITLE = "Wale Monte Carlo - Strategy Stress Lab"
 MIN_SIZE = (1024, 700)
 START_SIZE = (1360, 900)
 

@@ -322,7 +322,7 @@ def format_overfit_summary(score: OverfitScore, scenario_results: Dict[str, Scen
     
     lines.extend([
         "",
-        f"**Verdict:** {score.emoji} **{score.classification}** — {score.interpretation}",
+        f"**Verdict:** {score.emoji} **{score.classification}** - {score.interpretation}",
     ])
     
     return "\n".join(lines)

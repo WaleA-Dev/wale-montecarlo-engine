@@ -1,15 +1,34 @@
 # Changelog
 
-## 2026-07-03 — v2.0: Strategy Stress Lab
+## 2026-07-03 - v2.0.1: honesty and hardening pass
+
+- Verdicts now refuse to overpromise: under 10 trades returns "Insufficient
+  Data" instead of a grade, and under 30 trades caps at "Moderate" no matter
+  how clean the numbers look. A single winning trade used to rate "Robust",
+  which was embarrassing.
+- Data-quality warnings (like excluded open trades) now appear as flags on
+  the verdict plate instead of fine print at the bottom of the page.
+- Memory use is bounded for large files: a 20,000-trade list peaked at
+  2.3 GB before, 0.26 GB now. Chunk sizes scale with trade count across
+  bootstrap, shuffle, and stress simulations.
+- Verified the full desktop flow by driving the built exe with real mouse
+  input: sample analysis, dashboard render, and report download through the
+  native save dialog.
+- Removed the stale IMPLEMENTATION_PLAN.md and cleaned up typography across
+  the repo.
+- README now has an "Assumptions and Limitations" section that says plainly
+  what this tool can and cannot tell you.
+
+## 2026-07-03 - v2.0: Strategy Stress Lab
 
 ### Added
-- **Desktop app**: `WaleMonteCarlo.exe` (PyInstaller one-file, ~27 MB) — double-click
+- **Desktop app**: `WaleMonteCarlo.exe` (PyInstaller one-file, ~27 MB) - double-click
   and a native application window opens (WebView2 via pywebview, custom icon,
   no console, no browser). Falls back to the default browser if WebView2 is
   unavailable. Built from `WaleMonteCarlo.spec`.
 - **Web UI** (`wale_montecarlo/webapp/`): dark dashboard with verdict plate,
   equity cone, P&L / drawdown distributions, ruin ladder, stress-scenario table,
-  and one-click standalone HTML report export. Chart.js bundled locally — fully offline.
+  and one-click standalone HTML report export. Chart.js bundled locally - fully offline.
 - **Universal CSV ingestion** (`wale_montecarlo/ingest.py`): auto-detects
   TradingView "List of trades" exports (two rows per trade, `Net P&L USD`),
   the native format, and generic broker exports with any P&L-like column.

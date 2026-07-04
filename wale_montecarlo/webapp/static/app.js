@@ -1,4 +1,4 @@
-/* Strategy Stress Lab — frontend
+/* Strategy Stress Lab - frontend
    Runs in two modes:
    - app mode: upload → poll job → render results
    - report mode: window.EMBEDDED_RESULTS present → render immediately  */
@@ -91,15 +91,15 @@
     return e;
   };
   const fmtMoney = (v, dp = 0) => {
-    if (v === null || v === undefined) return "—";
+    if (v === null || v === undefined) return "-";
     const sign = v < 0 ? "−$" : "$";
     return sign + Math.abs(v).toLocaleString("en-US", {
       minimumFractionDigits: dp, maximumFractionDigits: dp });
   };
   const fmtPct = (v, dp = 1) =>
-    (v === null || v === undefined) ? "—" : (v * 100).toFixed(dp) + "%";
+    (v === null || v === undefined) ? "-" : (v * 100).toFixed(dp) + "%";
   const fmtNum = (v, dp = 2) =>
-    (v === null || v === undefined) ? "—" : Number(v).toFixed(dp);
+    (v === null || v === undefined) ? "-" : Number(v).toFixed(dp);
   const esc = (s) => String(s).replace(/[&<>"]/g,
     (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
 
@@ -118,6 +118,7 @@
   const VERDICT_COLOR = {
     "Robust": C.good, "Moderate": C.warn,
     "Fragile": C.serious, "Overfit / Not Tradable": C.critical,
+    "Insufficient Data": C.mut,
   };
 
   function render(res) {
@@ -533,7 +534,7 @@
   const STAGE_TEXT = {
     baseline: "computing baseline statistics",
     bootstrap: "bootstrapping equity paths",
-    shuffle: "shuffling trade order — luck test",
+    shuffle: "shuffling trade order - luck test",
     ruin: "estimating ruin probabilities",
     stress: "running execution stress scenarios",
   };

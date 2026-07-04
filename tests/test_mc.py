@@ -126,6 +126,23 @@ class TestEdgeCases:
         assert any("too few" in f["text"].lower()
                    for f in res["verdict"]["flags"])
 
+    def test_under_10_trades_is_insufficient_data(self):
+        res = run_full_analysis(make_data([100.0] * 8), n_samples=500,
+                                n_stress_seeds=100)
+        assert res["verdict"]["classification"] == "Insufficient Data"
+
+    def test_under_30_trades_never_robust(self):
+        # flawless 20-trade book must cap at Moderate, not stamp Robust
+        res = run_full_analysis(make_data([100.0] * 20), n_samples=500,
+                                n_stress_seeds=100)
+        assert res["verdict"]["classification"] == "Moderate"
+
+    def test_ingest_warnings_surface_as_flags(self):
+        d = make_data([50, -30, 80, -20, 100] * 8)
+        d.warnings.append("2 open/incomplete trade(s) excluded.")
+        res = run_full_analysis(d, n_samples=500, n_stress_seeds=100)
+        assert any("excluded" in f["text"] for f in res["verdict"]["flags"])
+
     def test_no_dates_still_works(self):
         d = load_trades_text("Profit\n100\n-50\n200\n-80\n" * 1)
         res = run_full_analysis(d, n_samples=500, n_stress_seeds=100)
